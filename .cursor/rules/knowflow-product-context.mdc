@@ -1,0 +1,26 @@
+---
+description: Preserve KnowFlow's long-term product principles and incremental development strategy
+alwaysApply: true
+---
+
+# KnowFlow Product Context
+
+Treat `docs/PRODUCT_CONTEXT.md` as the long-term product context for this repository.
+
+Before making a major product, UX, data-model, or architecture decision:
+
+- Read and preserve the principles in that document.
+- Ask the user when intended behavior is genuinely ambiguous.
+- Do not silently decide unresolved context semantics.
+
+Always preserve these invariants:
+
+- Nodes store knowledge or focused conversations.
+- Edges are first-class objects that store explicit semantic relationships and may store notes/context.
+- Visual position is independent from semantic meaning.
+- Dragging a node changes only its position, never its parent, context, or relationship meaning.
+- Semantic changes must be explicit and user-controlled.
+- Sibling nodes do not automatically share context.
+- KnowFlow is not an automatic mind-map generator.
+
+Develop in small, testable increments. Keep the UI and code simple, avoid unnecessary dependencies and abstractions, and preserve working behavior between iterations. Build the workspace before the browser extension; do not add a backend, authentication, cloud storage, AI APIs, collaboration, or automatic knowledge extraction until explicitly requested.

@@ -25,4 +25,34 @@ A user asks AI about FreeToken. The AI answer mentions CPU, GPU, RAM, and VRAM. 
 
 ## Tech Stack
 
-To be decided.
+- React 18
+- Vite 5
+- React Flow (`@xyflow/react`)
+
+## Current Prototype
+
+The first working slice displays the FreeToken example as a draggable knowledge graph:
+
+- FreeToken → CPU
+- FreeToken → GPU
+- FreeToken → RAM
+- FreeToken → VRAM
+
+The graph flows from top to bottom with curved follow-up edges. Each node previews a static user/AI exchange so that nodes read as conversation containers rather than simple labels.
+
+Dragging changes only a node's visual position. It does not change the graph's semantic relationships.
+
+This prototype does not yet connect to an AI model or send live chat messages.
+
+## Run Locally
+
+```bash
+npm install
+npm run dev
+```
+
+Create a production build with:
+
+```bash
+npm run build
+```
