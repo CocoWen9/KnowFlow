@@ -42,6 +42,8 @@ The graph flows from top to bottom with curved follow-up edges. Each node previe
 
 Dragging changes only a node's visual position. It does not change the graph's semantic relationships.
 
+Clicking a node opens a read-only details panel with its origin and full conversation. Clicking the canvas or the close button dismisses the panel.
+
 This prototype does not yet connect to an AI model or send live chat messages.
 
 ## Run Locally

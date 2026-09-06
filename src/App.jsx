@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Background,
   BackgroundVariant,
@@ -59,6 +59,39 @@ function HighlightedText({ text, term }) {
   )
 }
 
+function NodeDetails({ node, onClose }) {
+  return (
+    <aside className="details-panel" aria-label="Node details" data-testid="node-details">
+      <header className="details-panel__header">
+        <div>
+          <p className="details-panel__eyebrow">Node details</p>
+          <h2>{node.data.title}</h2>
+        </div>
+        <button className="details-panel__close" type="button" onClick={onClose} aria-label="Close details">
+          ×
+        </button>
+      </header>
+
+      <section className="details-section">
+        <h3>Origin</h3>
+        <p className="details-origin">{node.data.origin}</p>
+      </section>
+
+      <section className="details-section">
+        <h3>Conversation</h3>
+        <div className="details-message details-message--user">
+          <span>User</span>
+          <p>{node.data.userMessage}</p>
+        </div>
+        <div className="details-message details-message--assistant">
+          <span>AI</span>
+          <p>{node.data.assistantMessage}</p>
+        </div>
+      </section>
+    </aside>
+  )
+}
+
 const nodeTypes = {
   conversation: ConversationNode,
 }
@@ -73,6 +106,7 @@ const initialNodes = [
       userMessage: 'What is the FreeToken project and how does it work?',
       assistantMessage:
         'FreeToken improves LLM inference by coordinating CPU, GPU, RAM, and VRAM resources.',
+      origin: 'Starting question for this knowledge graph.',
       isRoot: true,
     },
   },
@@ -87,6 +121,7 @@ const initialNodes = [
       userMessage: 'What role does the CPU play?',
       assistantMessage:
         'The CPU handles general orchestration and prepares work for accelerators.',
+      origin: 'Highlighted from the FreeToken conversation.',
     },
   },
   {
@@ -100,6 +135,7 @@ const initialNodes = [
       userMessage: 'Why does FreeToken need a GPU?',
       assistantMessage:
         'The GPU performs highly parallel calculations used during model inference.',
+      origin: 'Highlighted from the FreeToken conversation.',
     },
   },
   {
@@ -113,6 +149,7 @@ const initialNodes = [
       userMessage: 'How is system RAM used?',
       assistantMessage:
         'RAM keeps data readily available to the CPU while the system is running.',
+      origin: 'Highlighted from the FreeToken conversation.',
     },
   },
   {
@@ -126,6 +163,7 @@ const initialNodes = [
       userMessage: 'How is VRAM different from RAM?',
       assistantMessage:
         'VRAM is fast memory dedicated to the GPU for model weights and active data.',
+      origin: 'Highlighted from the FreeToken conversation.',
     },
   },
 ]
@@ -146,6 +184,9 @@ const initialEdges = ['cpu', 'gpu', 'ram', 'vram'].map((target) => ({
 function App() {
   const [nodes, , onNodesChange] = useNodesState(initialNodes)
   const [highlightedSource, setHighlightedSource] = useState(null)
+  const [selectedNodeId, setSelectedNodeId] = useState(null)
+  const [flowInstance, setFlowInstance] = useState(null)
+  const selectedNode = nodes.find((node) => node.id === selectedNodeId)
   const visibleNodes = nodes.map((node) => {
     if (node.id !== highlightedSource?.parentId) {
       return node
@@ -160,6 +201,18 @@ function App() {
     }
   })
 
+  useEffect(() => {
+    if (!flowInstance) {
+      return undefined
+    }
+
+    const frame = requestAnimationFrame(() => {
+      flowInstance.fitView({ padding: 0.16 })
+    })
+
+    return () => cancelAnimationFrame(frame)
+  }, [flowInstance, selectedNodeId])
+
   return (
     <main className="app-shell">
       <header className="app-header">
@@ -167,42 +220,51 @@ function App() {
           <p className="eyebrow">AI-assisted learning workspace</p>
           <h1>KnowFlow</h1>
         </div>
-        <p className="hint">Drag a node to organize your workspace.</p>
+        <p className="hint">Click a node to inspect it. Drag to organize.</p>
       </header>
 
-      <section className="graph-panel" aria-label="KnowFlow knowledge graph">
-        <ReactFlow
-          nodes={visibleNodes}
-          edges={initialEdges}
-          nodeTypes={nodeTypes}
-          onNodesChange={onNodesChange}
-          onNodeMouseEnter={(_, node) => {
-            if (node.data.parentId && node.data.sourceTerm) {
-              setHighlightedSource({
-                parentId: node.data.parentId,
-                term: node.data.sourceTerm,
-              })
-            }
-          }}
-          onNodeMouseLeave={() => setHighlightedSource(null)}
-          fitView
-          fitViewOptions={{ padding: 0.16 }}
-          minZoom={0.35}
-          maxZoom={1.5}
-          nodesConnectable={false}
-          nodesFocusable={false}
-          edgesFocusable={false}
-          deleteKeyCode={null}
-        >
-          <Background
-            variant={BackgroundVariant.Dots}
-            gap={22}
-            size={1.2}
-            color="#cbd5e1"
-          />
-          <Controls showInteractive={false} />
-        </ReactFlow>
-      </section>
+      <div className={`workspace ${selectedNode ? 'workspace--with-details' : ''}`}>
+        <section className="graph-panel" aria-label="KnowFlow knowledge graph">
+          <ReactFlow
+            nodes={visibleNodes}
+            edges={initialEdges}
+            nodeTypes={nodeTypes}
+            onInit={setFlowInstance}
+            onNodesChange={onNodesChange}
+            onNodeClick={(_, node) => setSelectedNodeId(node.id)}
+            onPaneClick={() => setSelectedNodeId(null)}
+            onNodeMouseEnter={(_, node) => {
+              if (node.data.parentId && node.data.sourceTerm) {
+                setHighlightedSource({
+                  parentId: node.data.parentId,
+                  term: node.data.sourceTerm,
+                })
+              }
+            }}
+            onNodeMouseLeave={() => setHighlightedSource(null)}
+            fitView
+            fitViewOptions={{ padding: 0.16 }}
+            minZoom={0.35}
+            maxZoom={1.5}
+            nodesConnectable={false}
+            nodesFocusable={false}
+            edgesFocusable={false}
+            deleteKeyCode={null}
+          >
+            <Background
+              variant={BackgroundVariant.Dots}
+              gap={22}
+              size={1.2}
+              color="#cbd5e1"
+            />
+            <Controls showInteractive={false} />
+          </ReactFlow>
+        </section>
+
+        {selectedNode && (
+          <NodeDetails node={selectedNode} onClose={() => setSelectedNodeId(null)} />
+        )}
+      </div>
     </main>
   )
 }
