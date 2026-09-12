@@ -178,23 +178,26 @@ h1 {
   line-height: 1.55;
 }
 
-.details-message {
-  padding: 13px 14px;
-  border-radius: 12px;
-  background: #f3f5f8;
+.details-section--conversation {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-block: 24px;
 }
 
-.details-message + .details-message {
-  margin-top: 12px;
+.details-message {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
 .details-message--user {
-  background: #e9eeff;
+  align-items: flex-end;
 }
 
 .details-message span {
-  display: block;
-  margin-bottom: 6px;
+  margin: 0 6px 6px;
   color: #77849a;
   font-size: 0.65rem;
   font-weight: 800;
@@ -203,9 +206,118 @@ h1 {
 }
 
 .details-message p {
+  max-width: 92%;
+  padding: 10px 12px;
+  border-radius: 14px 14px 14px 4px;
   color: #2b3850;
+  background: #f3f5f8;
+  cursor: text;
   font-size: 0.86rem;
   line-height: 1.6;
+  user-select: text;
+}
+
+.details-message--user p {
+  max-width: 86%;
+  border-radius: 14px 14px 4px;
+  background: #e9eeff;
+}
+
+.details-section--add-child {
+  padding-top: 16px;
+}
+
+.details-add-button {
+  width: 100%;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 10px;
+  color: #ffffff;
+  background: #4669e8;
+  cursor: pointer;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.details-add-button:hover {
+  background: #3658cf;
+}
+
+.child-form {
+  display: grid;
+  gap: 14px;
+}
+
+.child-form__field {
+  display: grid;
+  gap: 6px;
+}
+
+.child-form__field label {
+  color: #536176;
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.child-form__field input,
+.child-form__field textarea {
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid #ccd5e2;
+  border-radius: 9px;
+  color: #24324a;
+  background: #ffffff;
+  outline: none;
+  font-size: 0.82rem;
+}
+
+.child-form__field textarea {
+  resize: vertical;
+  line-height: 1.45;
+}
+
+.child-form__field input:focus,
+.child-form__field textarea:focus {
+  border-color: #4669e8;
+  box-shadow: 0 0 0 3px rgb(70 105 232 / 12%);
+}
+
+.child-form__note {
+  color: #77849a;
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.child-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.child-form__cancel,
+.child-form__submit {
+  padding: 8px 11px;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.child-form__cancel {
+  color: #536176;
+  background: #edf0f5;
+}
+
+.child-form__submit {
+  color: #ffffff;
+  background: #4669e8;
+}
+
+.child-form__submit:disabled {
+  color: #96a0b1;
+  background: #e4e8ef;
+  cursor: not-allowed;
 }
 
 .react-flow__node-conversation {
@@ -245,6 +357,12 @@ h1 {
   padding: 14px 16px 12px;
   gap: 10px;
   border-bottom: 1px solid #edf0f5;
+  cursor: grab;
+  user-select: none;
+}
+
+.react-flow__node-conversation.dragging .conversation-card__header {
+  cursor: grabbing;
 }
 
 .conversation-card__icon {
@@ -295,8 +413,10 @@ h1 {
   border-radius: 10px;
   color: #2b3850;
   background: #f3f5f8;
+  cursor: text;
   font-size: 0.73rem;
   line-height: 1.45;
+  user-select: text;
 }
 
 .message--user {
@@ -324,6 +444,31 @@ h1 {
   background: #fce98f;
   font: inherit;
   line-height: inherit;
+}
+
+.selection-add-button {
+  position: fixed;
+  z-index: 1000;
+  padding: 8px 12px;
+  transform: translateX(-50%);
+  border: 1px solid rgb(255 255 255 / 32%);
+  border-radius: 9px;
+  color: #ffffff;
+  background: #293f93;
+  box-shadow: 0 8px 20px rgb(30 41 59 / 24%);
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.selection-add-button:hover {
+  background: #1f327e;
+}
+
+.selection-add-button:focus-visible {
+  outline: 2px solid #7690f3;
+  outline-offset: 2px;
 }
 
 .react-flow__handle {

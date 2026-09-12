@@ -44,6 +44,10 @@ Dragging changes only a node's visual position. It does not change the graph's s
 
 Clicking a node opens a read-only details panel with its origin and full conversation. Clicking the canvas or the close button dismisses the panel.
 
+From the details panel, users can manually create a child node with a title and question. The app adds an explicit follow-up edge and leaves the AI answer empty.
+
+Users can also select text in either the User or AI message and choose **Add child node**. The selected text becomes the suggested child title, and the new child retains its exact source so hovering it highlights the original phrase in the parent conversation.
+
 This prototype does not yet connect to an AI model or send live chat messages.
 
 ## Run Locally
