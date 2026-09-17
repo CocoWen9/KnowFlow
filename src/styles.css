@@ -44,6 +44,13 @@ select {
   gap: 24px;
 }
 
+.app-header__actions {
+  display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .eyebrow {
   margin: 0 0 5px;
   color: #65738b;
@@ -61,9 +68,34 @@ h1 {
 }
 
 .hint {
-  margin: 0 0 4px;
+  margin: 0;
   color: #65738b;
   font-size: 0.9rem;
+}
+
+.save-status {
+  color: #65738b;
+  font-size: 0.74rem;
+  font-weight: 650;
+}
+
+.save-status--saved::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: #22a06b;
+  vertical-align: 1px;
+}
+
+.save-status--saving {
+  color: #7a879b;
+}
+
+.save-status--error {
+  color: #b42318;
 }
 
 .workspace {
@@ -81,6 +113,7 @@ h1 {
 }
 
 .graph-panel {
+  position: relative;
   width: 100%;
   height: 100%;
   min-height: 420px;
@@ -243,6 +276,23 @@ h1 {
   background: #3658cf;
 }
 
+.pending-node-form {
+  display: grid;
+  padding: 20px;
+  gap: 16px;
+}
+
+.pending-node-form__hint {
+  margin: 0;
+  color: #536176;
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.pending-details .child-form__actions {
+  margin-top: 2px;
+}
+
 .child-form {
   display: grid;
   gap: 14px;
@@ -328,12 +378,13 @@ h1 {
 
 .conversation-card {
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   width: 100%;
   border: 1px solid #d5dde9;
   border-radius: 16px;
   color: #24324a;
   background: #ffffff;
+  cursor: grab;
   box-shadow: 0 10px 28px rgb(30 41 59 / 10%);
   transition:
     border-color 140ms ease,
@@ -343,6 +394,13 @@ h1 {
 .conversation-card--root {
   border-color: #8fa5f4;
   box-shadow: 0 12px 30px rgb(70 105 232 / 18%);
+}
+
+.conversation-card--pending {
+  border-style: dashed;
+  border-color: #8b9abc;
+  background: #fbfcff;
+  box-shadow: 0 10px 24px rgb(30 41 59 / 8%);
 }
 
 .react-flow__node-conversation:hover .conversation-card,
@@ -361,7 +419,8 @@ h1 {
   user-select: none;
 }
 
-.react-flow__node-conversation.dragging .conversation-card__header {
+.react-flow__node-conversation.dragging .conversation-card,
+.react-flow__node-conversation.dragging .message p {
   cursor: grabbing;
 }
 
@@ -478,9 +537,293 @@ h1 {
   background: #7e90ae;
 }
 
+.node-add-handle {
+  display: grid;
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  min-height: 28px;
+  place-items: center;
+  border: 2px solid #ffffff;
+  color: #ffffff;
+  background: #4669e8;
+  box-shadow: 0 5px 14px rgb(70 105 232 / 30%);
+  opacity: 0;
+  cursor: crosshair;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1;
+  transition:
+    opacity 120ms ease,
+    background 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.react-flow__node-conversation:hover .node-add-handle,
+.node-add-handle.connectingfrom,
+.node-add-handle.clickconnecting {
+  opacity: 1;
+}
+
+.node-add-handle:hover,
+.node-add-handle.connectingfrom,
+.node-add-handle.clickconnecting {
+  background: #3155d4;
+  box-shadow: 0 0 0 7px rgb(70 105 232 / 13%);
+}
+
+.node-top-target-handle,
+.node-bottom-target-handle {
+  width: 11px;
+  min-width: 11px;
+  height: 11px;
+  min-height: 11px;
+  border-color: #ffffff;
+  background: #8796ad;
+  pointer-events: none !important;
+  opacity: 0.42;
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease,
+    background 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.node-bottom-target-handle {
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  color: #ffffff;
+  cursor: crosshair;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.react-flow--connecting .node-add-handle {
+  pointer-events: none !important;
+  opacity: 0;
+}
+
+.react-flow--connecting .node-bottom-target-handle.connectable {
+  width: 72px;
+  min-width: 72px;
+  height: 72px;
+  min-height: 72px;
+  border-color: transparent;
+  background: radial-gradient(
+    circle,
+    #4669e8 0 13px,
+    rgb(70 105 232 / 12%) 14px 33px,
+    transparent 34px
+  );
+  pointer-events: auto !important;
+  opacity: 1;
+}
+
+.react-flow--connecting .node-bottom-target-handle.connectable:hover {
+  background: radial-gradient(
+    circle,
+    #22a06b 0 13px,
+    rgb(34 160 107 / 15%) 14px 33px,
+    transparent 34px
+  );
+  box-shadow: 0 0 0 8px rgb(34 160 107 / 14%);
+  opacity: 1;
+}
+
+.node-bottom-target-handle.connectingto {
+  opacity: 1;
+}
+
+.node-bottom-target-handle.connectingto.valid {
+  background: #22a06b;
+  box-shadow: 0 0 0 9px rgb(34 160 107 / 16%);
+}
+
+.connection-preview {
+  position: absolute;
+  z-index: 4;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.connection-preview path {
+  fill: none;
+  stroke: #4669e8;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+}
+
+.connection-preview circle {
+  fill: #ffffff;
+  stroke: #4669e8;
+  stroke-width: 2;
+}
+
+.canvas-add-button {
+  position: absolute;
+  z-index: 6;
+  display: grid;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  transform: translate(-50%, -50%);
+  place-items: center;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  color: #ffffff;
+  background: #4669e8;
+  box-shadow: 0 8px 22px rgb(70 105 232 / 34%);
+  cursor: pointer;
+  font-size: 1.35rem;
+  font-weight: 650;
+  line-height: 1;
+}
+
+.canvas-add-button:hover {
+  transform: translate(-50%, -50%) scale(1.08);
+  background: #3155d4;
+}
+
+.canvas-add-button:focus-visible {
+  outline: 3px solid rgb(70 105 232 / 24%);
+  outline-offset: 3px;
+}
+
+.context-menu-backdrop {
+  position: fixed;
+  z-index: 1090;
+  inset: 0;
+}
+
+.graph-context-menu {
+  position: fixed;
+  z-index: 1100;
+  width: 220px;
+  overflow: hidden;
+  padding: 8px;
+  border: 1px solid #dce3ed;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 14px 34px rgb(30 41 59 / 20%);
+}
+
+.graph-context-menu__target,
+.graph-context-menu__note {
+  margin: 0;
+}
+
+.graph-context-menu__target {
+  overflow: hidden;
+  padding: 4px 8px 7px;
+  color: #6c788c;
+  font-size: 0.7rem;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.graph-context-menu button {
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 8px;
+  color: #b42318;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+
+.graph-context-menu button:hover,
+.graph-context-menu button:focus-visible {
+  color: #8f1811;
+  background: #fff0ee;
+  outline: none;
+}
+
+.graph-context-menu__note {
+  padding: 6px 8px 4px;
+  color: #7a879b;
+  font-size: 0.68rem;
+  line-height: 1.4;
+}
+
 .react-flow__edge-path {
   stroke: #91a0b6;
   stroke-width: 1.8;
+}
+
+.react-flow__edge.pending-edge .react-flow__edge-path {
+  stroke-dasharray: 6 5;
+  opacity: 0.65;
+}
+
+.adjustable-edge-drag-layer .react-flow__edge-interaction {
+  cursor: grab;
+  touch-action: none;
+}
+
+.adjustable-edge-drag-layer--dragging .react-flow__edge-interaction {
+  cursor: grabbing;
+}
+
+.adjustable-edge-drag-layer--disabled .react-flow__edge-interaction {
+  cursor: default;
+}
+
+.edge-curve-handle {
+  position: absolute;
+  z-index: 5;
+  display: grid;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: grab;
+  pointer-events: all;
+  touch-action: none;
+}
+
+.edge-curve-handle span {
+  display: block;
+  width: 7px;
+  height: 7px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  background: #70819a;
+  box-shadow: 0 2px 7px rgb(30 41 59 / 22%);
+  opacity: 0.58;
+  transition:
+    width 120ms ease,
+    height 120ms ease,
+    opacity 120ms ease,
+    background 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.edge-curve-handle:hover span,
+.edge-curve-handle--selected span,
+.edge-curve-handle--dragging span {
+  width: 12px;
+  height: 12px;
+  background: #4669e8;
+  box-shadow: 0 0 0 6px rgb(70 105 232 / 14%);
+  opacity: 1;
+}
+
+.edge-curve-handle--dragging {
+  cursor: grabbing;
 }
 
 .react-flow__arrowhead polyline {
@@ -504,18 +847,6 @@ h1 {
   background: #f3f6fb;
 }
 
-@media (max-width: 900px) {
-  .app-shell {
-    height: auto;
-    min-height: 100%;
-  }
-
-  .workspace--with-details {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(480px, 65vh) auto;
-  }
-}
-
 @media (max-width: 640px) {
   .app-shell {
     padding: 16px;
@@ -525,6 +856,10 @@ h1 {
     align-items: start;
     flex-direction: column;
     gap: 8px;
+  }
+
+  .app-header__actions {
+    align-items: flex-start;
   }
 
   .hint {
