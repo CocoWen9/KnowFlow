@@ -52,9 +52,11 @@ Right-clicking empty canvas space reveals a **+** action; clicking it creates a 
 
 Right-clicking a node or edge opens its delete action. Deleting a node removes its full child branch and every edge touching that branch. Deleting a parent–child edge removes its child branch, while deleting a manually added parallel connection removes only that edge.
 
+Clicking a permanent edge opens **Edge details** in the right panel. Users can choose a semantic relationship—such as Follow-up, Related to, Explains, Depends on, Contradicts, or Compares with—and save a note about why the nodes are connected. Follow-up edges remain solid and directed; other semantic relationships are dashed. Newly drawn connections between existing nodes default to Related to.
+
 Each permanent edge can be dragged from anywhere along its curve to reshape it; the small control point shows the curve's bend position. The custom curve is saved with the graph. Temporary draft edges keep their automatic shape until the node is saved.
 
-Graph changes can be undone with **Ctrl+Z** on Windows/Linux or **⌘Z** on macOS. Undo covers node creation and deletion, edge creation and deletion, and node movement. Using the shortcut while editing a text field does not alter the graph history.
+Graph changes can be undone with **Ctrl+Z** on Windows/Linux or **⌘Z** on macOS. Undo covers node creation and deletion, edge creation and deletion, relationship edits, and node movement. Using the shortcut while editing a text field does not alter the graph history.
 
 The graph is saved automatically in browser storage, including added nodes, edges, and dragged positions. Reloading restores the last saved graph.
 

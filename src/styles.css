@@ -293,6 +293,43 @@ h1 {
   margin-top: 2px;
 }
 
+.edge-details__connection {
+  padding-bottom: 18px;
+}
+
+.edge-details__path {
+  display: grid;
+  align-items: center;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 8px;
+}
+
+.edge-details__path span {
+  overflow: hidden;
+  padding: 8px 9px;
+  border: 1px solid #dce3ed;
+  border-radius: 9px;
+  color: #344158;
+  background: #f7f9fc;
+  font-size: 0.73rem;
+  font-weight: 700;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.edge-details__path strong {
+  color: #718097;
+  font-size: 1rem;
+}
+
+.edge-details__form {
+  display: grid;
+  padding: 20px;
+  gap: 16px;
+  border-top: 1px solid #e8edf4;
+}
+
 .child-form {
   display: grid;
   gap: 14px;
@@ -310,6 +347,7 @@ h1 {
 }
 
 .child-form__field input,
+.child-form__field select,
 .child-form__field textarea {
   width: 100%;
   padding: 9px 10px;
@@ -318,7 +356,12 @@ h1 {
   color: #24324a;
   background: #ffffff;
   outline: none;
+  font-family: inherit;
   font-size: 0.82rem;
+}
+
+.child-form__field select {
+  cursor: pointer;
 }
 
 .child-form__field textarea {
@@ -327,12 +370,14 @@ h1 {
 }
 
 .child-form__field input:focus,
+.child-form__field select:focus,
 .child-form__field textarea:focus {
   border-color: #4669e8;
   box-shadow: 0 0 0 3px rgb(70 105 232 / 12%);
 }
 
 .child-form__note {
+  margin: 0;
   color: #77849a;
   font-size: 0.72rem;
   line-height: 1.45;

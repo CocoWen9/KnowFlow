@@ -69,6 +69,7 @@ function AdjustableEdge({
     dragOrigin.current = {
       pointerPosition,
       controlPoint: { ...controlPoint },
+      moved: false,
     }
     setIsDragging(true)
     event.target.setPointerCapture?.(event.pointerId)
@@ -86,16 +87,18 @@ function AdjustableEdge({
       x: event.clientX,
       y: event.clientY,
     })
+    const pointerDelta = {
+      x: pointerPosition.x - dragOrigin.current.pointerPosition.x,
+      y: pointerPosition.y - dragOrigin.current.pointerPosition.y,
+    }
+
+    if (Math.hypot(pointerDelta.x, pointerDelta.y) > 2) {
+      dragOrigin.current.moved = true
+    }
 
     data?.onCurveChange?.(id, {
-      x:
-        dragOrigin.current.controlPoint.x +
-        pointerPosition.x -
-        dragOrigin.current.pointerPosition.x,
-      y:
-        dragOrigin.current.controlPoint.y +
-        pointerPosition.y -
-        dragOrigin.current.pointerPosition.y,
+      x: dragOrigin.current.controlPoint.x + pointerDelta.x,
+      y: dragOrigin.current.controlPoint.y + pointerDelta.y,
     })
   }
 
@@ -104,9 +107,15 @@ function AdjustableEdge({
       return
     }
 
+    const shouldSelectEdge = !dragOrigin.current.moved
+
     dragOrigin.current = null
     setIsDragging(false)
     data?.onCurveDragEnd?.(id)
+
+    if (shouldSelectEdge) {
+      data?.onSelect?.(id)
+    }
   }
 
   return (
@@ -502,6 +511,130 @@ function PendingNodeDetails({ node, onDiscard, onSave }) {
   )
 }
 
+const relationshipOptions = [
+  { value: 'follow-up', label: 'Follow-up' },
+  { value: 'related-to', label: 'Related to' },
+  { value: 'explains', label: 'Explains' },
+  { value: 'example-of', label: 'Example of' },
+  { value: 'depends-on', label: 'Depends on' },
+  { value: 'contradicts', label: 'Contradicts' },
+  { value: 'compares-with', label: 'Compares with' },
+  { value: 'user-note', label: 'User note' },
+]
+
+const relationshipLabels = Object.fromEntries(
+  relationshipOptions.map((option) => [option.value, option.label]),
+)
+
+const undirectedRelationshipTypes = new Set([
+  'related-to',
+  'contradicts',
+  'compares-with',
+  'user-note',
+])
+
+function EdgeDetails({ edge, onClose, onSave, sourceNode, targetNode }) {
+  const storedRelationshipType = edge.data?.relationshipType ?? 'related-to'
+  const storedNote = edge.data?.note ?? ''
+  const [relationshipType, setRelationshipType] = useState(storedRelationshipType)
+  const [note, setNote] = useState(storedNote)
+  const hasChanges =
+    relationshipType !== storedRelationshipType || note !== storedNote
+  const relationshipLabel =
+    relationshipLabels[relationshipType] ?? relationshipLabels['related-to']
+
+  function handleSubmit(event) {
+    event.preventDefault()
+
+    if (!hasChanges) {
+      return
+    }
+
+    const normalizedNote = note.trim()
+
+    setNote(normalizedNote)
+    onSave({ relationshipType, note: normalizedNote })
+  }
+
+  return (
+    <aside
+      className="details-panel edge-details"
+      aria-label="Edge details"
+      data-testid="edge-details"
+    >
+      <header className="details-panel__header">
+        <div>
+          <p className="details-panel__eyebrow">Edge details</p>
+          <h2>{relationshipLabel}</h2>
+        </div>
+        <button
+          className="details-panel__close"
+          type="button"
+          onClick={onClose}
+          aria-label="Close edge details"
+        >
+          ×
+        </button>
+      </header>
+
+      <section className="details-section edge-details__connection">
+        <h3>Connection</h3>
+        <div className="edge-details__path" aria-label="Connected nodes">
+          <span>{sourceNode?.data.title ?? 'Source node'}</span>
+          <strong aria-hidden="true">
+            {undirectedRelationshipTypes.has(relationshipType) ? '—' : '→'}
+          </strong>
+          <span>{targetNode?.data.title ?? 'Target node'}</span>
+        </div>
+      </section>
+
+      <form className="edge-details__form" onSubmit={handleSubmit}>
+        <div className="child-form__field">
+          <label htmlFor={`edge-relationship-${edge.id}`}>Relationship</label>
+          <select
+            id={`edge-relationship-${edge.id}`}
+            value={relationshipType}
+            onChange={(event) => setRelationshipType(event.target.value)}
+          >
+            {relationshipOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="child-form__field">
+          <label htmlFor={`edge-note-${edge.id}`}>Note</label>
+          <textarea
+            id={`edge-note-${edge.id}`}
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+            placeholder="Describe why these ideas are connected."
+            rows="6"
+            maxLength="800"
+          />
+        </div>
+
+        <p className="child-form__note">
+          Relationship and note are semantic. Dragging the curve only changes its
+          visual shape.
+        </p>
+
+        <div className="child-form__actions">
+          <button
+            className="child-form__submit"
+            type="submit"
+            disabled={!hasChanges}
+          >
+            Save changes
+          </button>
+        </div>
+      </form>
+    </aside>
+  )
+}
+
 function GraphContextMenu({ context, onClose, onDelete }) {
   return (
     <>
@@ -618,6 +751,8 @@ function createFollowUpEdge(
   source,
   target,
   {
+    note = '',
+    relationshipType = 'follow-up',
     sourceHandle = 'branch-source',
     targetHandle = 'branch-target-top',
   } = {},
@@ -629,7 +764,7 @@ function createFollowUpEdge(
     sourceHandle,
     targetHandle,
     type: 'default',
-    data: { relationshipType: 'follow-up' },
+    data: { relationshipType, note },
     markerEnd: {
       type: MarkerType.ArrowClosed,
       width: 18,
@@ -655,7 +790,7 @@ const initialEdges = ['cpu', 'gpu', 'ram', 'vram'].map((target) =>
 )
 
 const graphStorageKey = 'knowflow.graph.v1'
-const graphStorageVersion = 1
+const graphStorageVersion = 2
 
 function cloneInitialGraph() {
   return {
@@ -703,7 +838,7 @@ function loadStoredGraph() {
     const storedGraph = JSON.parse(storedValue)
 
     if (
-      storedGraph?.version !== graphStorageVersion ||
+      ![1, graphStorageVersion].includes(storedGraph?.version) ||
       !Array.isArray(storedGraph.nodes) ||
       !Array.isArray(storedGraph.edges)
     ) {
@@ -731,25 +866,44 @@ function loadStoredGraph() {
       return fallbackGraph
     }
 
+    const normalizedNodes = storedGraph.nodes.map((storedNode) => {
+      const node = { ...storedNode }
+      delete node.dragHandle
+
+      return {
+        ...node,
+        type: 'conversation',
+        position: { ...node.position },
+        data: { ...node.data },
+      }
+    })
+    const isLegacyGraph = storedGraph.version === 1
+
     return {
-      nodes: storedGraph.nodes.map((storedNode) => {
-        const node = { ...storedNode }
-        delete node.dragHandle
+      nodes: normalizedNodes,
+      edges: storedGraph.edges.map((edge) => {
+        const isStructuralEdge = Boolean(
+          getStructuralChildId(edge, normalizedNodes),
+        )
+        const storedRelationshipType = edge.data?.relationshipType
+        const relationshipType =
+          isLegacyGraph && !isStructuralEdge && storedRelationshipType === 'follow-up'
+            ? 'related-to'
+            : storedRelationshipType ??
+              (isStructuralEdge ? 'follow-up' : 'related-to')
 
         return {
-          ...node,
-          type: 'conversation',
-          position: { ...node.position },
-          data: { ...node.data },
+          ...edge,
+          sourceHandle: edge.sourceHandle ?? 'branch-source',
+          targetHandle: edge.targetHandle ?? 'branch-target-top',
+          data: {
+            ...edge.data,
+            relationshipType,
+            note: typeof edge.data?.note === 'string' ? edge.data.note : '',
+          },
+          markerEnd: edge.markerEnd ? { ...edge.markerEnd } : undefined,
         }
       }),
-      edges: storedGraph.edges.map((edge) => ({
-        ...edge,
-        sourceHandle: edge.sourceHandle ?? 'branch-source',
-        targetHandle: edge.targetHandle ?? 'branch-target-top',
-        data: { ...edge.data },
-        markerEnd: { ...edge.markerEnd },
-      })),
     }
   } catch {
     return fallbackGraph
@@ -852,6 +1006,7 @@ function App() {
   const [edges, setEdges] = useState(initialGraph.edges)
   const [highlightedSource, setHighlightedSource] = useState(null)
   const [selectedNodeId, setSelectedNodeId] = useState(null)
+  const [selectedEdgeId, setSelectedEdgeId] = useState(null)
   const [flowInstance, setFlowInstance] = useState(null)
   const [textSelection, setTextSelection] = useState(null)
   const [childDraft, setChildDraft] = useState(null)
@@ -873,6 +1028,13 @@ function App() {
   nodesRef.current = nodes
   edgesRef.current = edges
   const selectedNode = nodes.find((node) => node.id === selectedNodeId)
+  const selectedEdge = edges.find((edge) => edge.id === selectedEdgeId)
+  const selectedEdgeSource = nodes.find(
+    (node) => node.id === selectedEdge?.source,
+  )
+  const selectedEdgeTarget = nodes.find(
+    (node) => node.id === selectedEdge?.target,
+  )
   const visibleNodes = nodes.map((node) => {
     if (node.id !== highlightedSource?.parentId) {
       return node
@@ -887,16 +1049,38 @@ function App() {
       },
     }
   })
-  const visibleEdges = edges.map((edge) => ({
-    ...edge,
-    type: 'adjustable',
-    data: {
-      ...edge.data,
-      onCurveChange: handleEdgeCurveChange,
-      onCurveDragEnd: handleEdgeCurveDragEnd,
-      onCurveDragStart: handleEdgeCurveDragStart,
-    },
-  }))
+  const visibleEdges = edges.map((edge) => {
+    const relationshipType = edge.data?.relationshipType ?? 'related-to'
+    const isSelected = edge.id === selectedEdgeId
+    const isSemanticRelationship = relationshipType !== 'follow-up'
+    const usesArrow = !undirectedRelationshipTypes.has(relationshipType)
+
+    return {
+      ...edge,
+      type: 'adjustable',
+      selected: isSelected,
+      markerEnd: usesArrow
+        ? edge.markerEnd ?? {
+            type: MarkerType.ArrowClosed,
+            width: 18,
+            height: 18,
+          }
+        : undefined,
+      style: {
+        ...edge.style,
+        strokeDasharray: isSemanticRelationship ? '7 6' : undefined,
+        stroke: isSelected ? '#4669e8' : undefined,
+        strokeWidth: isSelected ? 2.6 : undefined,
+      },
+      data: {
+        ...edge.data,
+        onCurveChange: handleEdgeCurveChange,
+        onCurveDragEnd: handleEdgeCurveDragEnd,
+        onCurveDragStart: handleEdgeCurveDragStart,
+        onSelect: handleEdgeSelect,
+      },
+    }
+  })
 
   useEffect(() => {
     if (!flowInstance) {
@@ -908,7 +1092,7 @@ function App() {
     }, 50)
 
     return () => clearTimeout(fitViewTimer)
-  }, [flowInstance, nodes.length, selectedNodeId])
+  }, [flowInstance, nodes.length, selectedNodeId, selectedEdgeId])
 
   useEffect(() => {
     setSaveStatus('saving')
@@ -1000,6 +1184,62 @@ function App() {
     }
   }
 
+  function handleEdgeSelect(edgeId) {
+    const edge = edgesRef.current.find((candidate) => candidate.id === edgeId)
+
+    if (!edge || edge.data?.isPending) {
+      return
+    }
+
+    cancelInlineChildDraft()
+
+    if (selectedNode?.data.isPending) {
+      discardPendingNode(selectedNode.id)
+    }
+
+    setSelectedNodeId(null)
+    setSelectedEdgeId(edgeId)
+    setChildDraft(null)
+    setTextSelection(null)
+    setCanvasAddAction(null)
+    setContextMenu(null)
+    window.getSelection()?.removeAllRanges()
+  }
+
+  function handleEdgeDetailsSave(edgeId, edgeDetails) {
+    const edge = edgesRef.current.find((candidate) => candidate.id === edgeId)
+    const relationshipType = relationshipOptions.some(
+      (option) => option.value === edgeDetails.relationshipType,
+    )
+      ? edgeDetails.relationshipType
+      : 'related-to'
+    const note = edgeDetails.note.trim().slice(0, 800)
+
+    if (
+      !edge ||
+      (edge.data?.relationshipType === relationshipType &&
+        (edge.data?.note ?? '') === note)
+    ) {
+      return
+    }
+
+    recordGraphHistory()
+    setEdges((currentEdges) =>
+      currentEdges.map((currentEdge) =>
+        currentEdge.id === edgeId
+          ? {
+              ...currentEdge,
+              data: {
+                ...currentEdge.data,
+                relationshipType,
+                note,
+              },
+            }
+          : currentEdge,
+      ),
+    )
+  }
+
   function undoLastGraphChange() {
     const previousGraph = graphHistory.current.pop()
 
@@ -1014,6 +1254,7 @@ function App() {
     setNodes(restoredGraph.nodes)
     setEdges(restoredGraph.edges)
     setSelectedNodeId(null)
+    setSelectedEdgeId(null)
     setHighlightedSource(null)
     setTextSelection(null)
     setChildDraft(null)
@@ -1082,6 +1323,7 @@ function App() {
 
     cancelInlineChildDraft()
     setSelectedNodeId(textSelection.nodeId)
+    setSelectedEdgeId(null)
     setChildDraft({
       ...textSelection,
       requestId: nextSelectionRequest.current,
@@ -1105,6 +1347,7 @@ function App() {
     }
 
     setSelectedNodeId(nodeId)
+    setSelectedEdgeId(null)
     setChildDraft(null)
     setCanvasAddAction(null)
     setContextMenu(null)
@@ -1313,6 +1556,7 @@ function App() {
       ]
     })
     setSelectedNodeId(pendingNodeId)
+    setSelectedEdgeId(null)
     setHighlightedSource(null)
     setTextSelection(null)
     setChildDraft(null)
@@ -1451,6 +1695,7 @@ function App() {
     }
 
     setSelectedNodeId(null)
+    setSelectedEdgeId(null)
     setChildDraft(null)
     setTextSelection(null)
   }
@@ -1524,6 +1769,16 @@ function App() {
     setSelectedNodeId((currentNodeId) =>
       branchIds.has(currentNodeId) ? null : currentNodeId,
     )
+    setSelectedEdgeId((currentEdgeId) => {
+      const currentEdge = edgesRef.current.find(
+        (edge) => edge.id === currentEdgeId,
+      )
+
+      return currentEdge &&
+        (branchIds.has(currentEdge.source) || branchIds.has(currentEdge.target))
+        ? null
+        : currentEdgeId
+    })
     setTextSelection((currentSelection) =>
       branchIds.has(currentSelection?.nodeId) ? null : currentSelection,
     )
@@ -1554,6 +1809,9 @@ function App() {
     setEdges((currentEdges) =>
       currentEdges.filter((edge) => edge.id !== contextMenu.id),
     )
+    setSelectedEdgeId((currentEdgeId) =>
+      currentEdgeId === contextMenu.id ? null : currentEdgeId,
+    )
     setContextMenu(null)
   }
 
@@ -1579,14 +1837,16 @@ function App() {
       return
     }
 
+    const newEdge = createFollowUpEdge(connection.source, connection.target, {
+      relationshipType: 'related-to',
+      sourceHandle: connection.sourceHandle ?? 'branch-source',
+      targetHandle: connection.targetHandle ?? 'branch-source',
+    })
+
     recordGraphHistory()
-    setEdges((currentEdges) => [
-      ...currentEdges,
-      createFollowUpEdge(connection.source, connection.target, {
-        sourceHandle: connection.sourceHandle ?? 'branch-source',
-        targetHandle: connection.targetHandle ?? 'branch-source',
-      }),
-    ])
+    setEdges((currentEdges) => [...currentEdges, newEdge])
+    setSelectedNodeId(null)
+    setSelectedEdgeId(newEdge.id)
   }
 
   function handleConnectEnd(event, connectionState) {
@@ -1712,7 +1972,7 @@ function App() {
       </header>
 
       <div
-        className={`workspace ${selectedNode ? 'workspace--with-details' : ''}`}
+        className={`workspace ${selectedNode || selectedEdge ? 'workspace--with-details' : ''}`}
         onMouseUp={handleConversationSelection}
       >
         <section
@@ -1745,6 +2005,7 @@ function App() {
               setTextSelection(null)
             }}
             onNodeContextMenu={handleNodeContextMenu}
+            onEdgeClick={(_, edge) => handleEdgeSelect(edge.id)}
             onEdgeContextMenu={handleEdgeContextMenu}
             onPaneContextMenu={handlePaneContextMenu}
             onPaneClick={handlePaneClick}
@@ -1814,7 +2075,18 @@ function App() {
           )}
         </section>
 
-        {selectedNode?.data.isPending ? (
+        {selectedEdge ? (
+          <EdgeDetails
+            key={selectedEdge.id}
+            edge={selectedEdge}
+            sourceNode={selectedEdgeSource}
+            targetNode={selectedEdgeTarget}
+            onSave={(edgeDetails) =>
+              handleEdgeDetailsSave(selectedEdge.id, edgeDetails)
+            }
+            onClose={() => setSelectedEdgeId(null)}
+          />
+        ) : selectedNode?.data.isPending ? (
           <PendingNodeDetails
             key={selectedNode.id}
             node={selectedNode}
