@@ -15,6 +15,25 @@ import {
   useReactFlow,
 } from '@xyflow/react'
 
+const aiApiBaseUrl = (import.meta.env.VITE_AI_API_URL ?? '').replace(/\/$/, '')
+const aiRequestTimeoutMs = 45_000
+const sidebarWidthStorageKey = 'knowflow.sidebar-width.v1'
+const defaultSidebarWidth = 256
+const minimumSidebarWidth = 200
+const maximumSidebarWidth = 420
+
+function clampSidebarWidth(width) {
+  return Math.min(maximumSidebarWidth, Math.max(minimumSidebarWidth, width))
+}
+
+function loadSidebarWidth() {
+  const storedWidth = Number(window.localStorage.getItem(sidebarWidthStorageKey))
+
+  return Number.isFinite(storedWidth)
+    ? clampSidebarWidth(storedWidth)
+    : defaultSidebarWidth
+}
+
 function AdjustableEdge({
   data,
   id,
@@ -169,7 +188,7 @@ function AdjustableEdge({
 function ConversationNode({ id, data }) {
   return (
     <article
-      className={`conversation-card ${data.isRoot ? 'conversation-card--root' : ''} ${data.isPending ? 'conversation-card--pending' : ''}`}
+      className={`conversation-card ${data.isRoot ? 'conversation-card--root' : ''} ${data.isPending ? 'conversation-card--pending' : ''} ${data.aiStatus === 'loading' ? 'conversation-card--thinking' : ''} ${data.aiStatus === 'error' ? 'conversation-card--error' : ''}`}
       data-conversation-node-id={id}
     >
       <Handle
@@ -200,7 +219,10 @@ function ConversationNode({ id, data }) {
 
       <div className="message message--assistant" data-message-role="assistant">
         <span>AI</span>
-        <p>
+        <p aria-live="polite">
+          {data.aiStatus === 'loading' && (
+            <span className="thinking-dot" aria-hidden="true" />
+          )}
           <HighlightedText
             text={data.assistantMessage}
             term={data.highlightedRole === 'assistant' ? data.highlightedTerm : null}
@@ -261,6 +283,7 @@ function NodeDetails({
   onAddChild,
   onCancelChild,
   onClose,
+  onRetry,
   onStartChild,
 }) {
   const [isAddingChild, setIsAddingChild] = useState(Boolean(initialChildTitle))
@@ -359,7 +382,20 @@ function NodeDetails({
         </div>
         <div className="details-message details-message--assistant" data-message-role="assistant">
           <span>AI</span>
-          <p>{node.data.assistantMessage}</p>
+          <p aria-live="polite">
+            {node.data.aiStatus === 'loading' && (
+              <span className="thinking-dot" aria-hidden="true" />
+            )}
+            {node.data.assistantMessage}
+          </p>
+          {node.data.aiStatus === 'error' && (
+            <div className="answer-error">
+              <small>{node.data.aiError ?? 'The AI service could not answer.'}</small>
+              <button className="retry-answer-button" type="button" onClick={onRetry}>
+                Retry
+              </button>
+            </div>
+          )}
         </div>
       </section>
 
@@ -400,7 +436,9 @@ function NodeDetails({
               />
             </div>
 
-            <p className="child-form__note">The AI answer will be empty for now.</p>
+            <p className="child-form__note">
+              The AI will answer after this child is created.
+            </p>
 
             <div className="child-form__actions">
               <button
@@ -495,7 +533,8 @@ function PendingNodeDetails({ node, onDiscard, onSave }) {
         </div>
 
         <p className="child-form__note">
-          This node remains temporary until you create it.
+          This node remains temporary until you create it. The AI answer starts
+          after saving.
         </p>
 
         <div className="child-form__actions">
@@ -655,11 +694,255 @@ function GraphContextMenu({ context, onClose, onDelete }) {
       >
         <p className="graph-context-menu__target">{context.targetLabel}</p>
         <button type="button" role="menuitem" onClick={onDelete}>
-          {context.type === 'node' ? 'Delete node' : 'Delete edge'}
+          {context.type === 'node'
+            ? 'Delete node'
+            : context.type === 'graph'
+              ? 'Delete graph'
+              : 'Delete edge'}
         </button>
         <p className="graph-context-menu__note">{context.description}</p>
       </div>
     </>
+  )
+}
+
+function AppIcon({ name }) {
+  const paths = {
+    panel: <path d="M4 5h16v14H4zM9 5v14" />,
+    plus: <path d="M12 5v14M5 12h14" />,
+    search: <path d="m20 20-4.2-4.2M18 11a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z" />,
+    graph: <path d="M6 5a2 2 0 1 0 0 4 2 2 0 0 0 0-4Zm12 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4ZM8 7h4a4 4 0 0 1 4 4v4M6 9v6a2 2 0 0 0 2 2h8" />,
+    pin: <path d="m9 4 6 0-.8 5 2.8 3H7l2.8-3L9 4Zm3 8v8" />,
+    user: <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm7 8a7 7 0 0 0-14 0" />,
+    arrow: <path d="m9 18 6-6-6-6" />,
+  }
+
+  return (
+    <svg
+      className="app-icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {paths[name]}
+    </svg>
+  )
+}
+
+function GraphSidebar({
+  activeGraphId,
+  collapsed,
+  graphs,
+  onCreateGraph,
+  onDeleteGraph,
+  onSelectGraph,
+  onToggleGraphPin,
+  onToggle,
+}) {
+  const [query, setQuery] = useState('')
+  const [showAccountNote, setShowAccountNote] = useState(false)
+  const [graphContextMenu, setGraphContextMenu] = useState(null)
+  const sortedGraphs = [...graphs].sort((first, second) => {
+    const pinnedDifference =
+      Number(Boolean(second.pinned)) - Number(Boolean(first.pinned))
+
+    if (pinnedDifference) {
+      return pinnedDifference
+    }
+
+    return (
+      new Date(second.updatedAt).getTime() -
+      new Date(first.updatedAt).getTime()
+    )
+  })
+  const visibleGraphs = sortedGraphs.filter((graph) =>
+    getGraphSummary(graph).toLowerCase().includes(query.trim().toLowerCase()),
+  )
+  const pinnedGraphs = visibleGraphs.filter((graph) => graph.pinned)
+  const recentGraphs = visibleGraphs.filter((graph) => !graph.pinned)
+
+  function renderGraphRow(graph) {
+    const graphSummary = getGraphSummary(graph)
+
+    return (
+      <div
+        key={graph.id}
+        className="graph-list__row"
+        onContextMenu={(event) => {
+          event.preventDefault()
+          event.stopPropagation()
+          setGraphContextMenu({
+            type: 'graph',
+            graphId: graph.id,
+            targetLabel: graphSummary,
+            description: 'Deletes this graph from this device.',
+            x: Math.max(
+              12,
+              Math.min(event.clientX, window.innerWidth - 232),
+            ),
+            y: Math.max(
+              12,
+              Math.min(event.clientY, window.innerHeight - 132),
+            ),
+          })
+        }}
+      >
+        <button
+          className={`graph-list__item ${graph.id === activeGraphId ? 'graph-list__item--active' : ''}`}
+          type="button"
+          onClick={() => onSelectGraph(graph.id)}
+          aria-current={graph.id === activeGraphId ? 'page' : undefined}
+        >
+          <AppIcon name="graph" />
+          <span>
+            <strong>{graphSummary}</strong>
+            <small>
+              {graph.nodes.length} node{graph.nodes.length === 1 ? '' : 's'}
+            </small>
+          </span>
+        </button>
+        <button
+          className={`graph-pin-button ${graph.pinned ? 'graph-pin-button--active' : ''}`}
+          type="button"
+          aria-label={
+            graph.pinned ? `Unpin ${graphSummary}` : `Pin ${graphSummary}`
+          }
+          aria-pressed={Boolean(graph.pinned)}
+          title={graph.pinned ? 'Unpin graph' : 'Pin graph'}
+          onClick={(event) => {
+            event.stopPropagation()
+            onToggleGraphPin(graph.id)
+          }}
+        >
+          <AppIcon name="pin" />
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <aside className={`graph-sidebar ${collapsed ? 'graph-sidebar--collapsed' : ''}`}>
+      <div className="graph-sidebar__topbar">
+        <button
+          className="graph-sidebar__brand"
+          type="button"
+          onClick={collapsed ? onToggle : undefined}
+          aria-label={collapsed ? 'Open sidebar' : 'KnowFlow home'}
+        >
+          <span aria-hidden="true">K</span>
+          {!collapsed && <strong>KnowFlow</strong>}
+        </button>
+        {!collapsed && (
+          <button
+            className="sidebar-icon-button"
+            type="button"
+            onClick={onToggle}
+            aria-label="Collapse sidebar"
+          >
+            <AppIcon name="panel" />
+          </button>
+        )}
+      </div>
+
+      <div className="graph-sidebar__primary-actions">
+        <button
+          className="sidebar-action"
+          type="button"
+          onClick={onCreateGraph}
+          title={collapsed ? 'New graph' : undefined}
+        >
+          <AppIcon name="plus" />
+          {!collapsed && <span>New graph</span>}
+        </button>
+        <label
+          className="sidebar-search"
+          title={collapsed ? 'Search graphs' : undefined}
+        >
+          <AppIcon name="search" />
+          {!collapsed && (
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search graphs"
+              aria-label="Search graphs"
+            />
+          )}
+        </label>
+      </div>
+
+      {!collapsed && (
+        <div className="graph-sidebar__library">
+          <nav className="graph-list" aria-label="Local knowledge graphs">
+            {pinnedGraphs.length > 0 && (
+              <div className="graph-list__section">
+                <div className="graph-sidebar__section-heading">Pinned</div>
+                {pinnedGraphs.map(renderGraphRow)}
+              </div>
+            )}
+
+            {recentGraphs.length > 0 && (
+              <div className="graph-list__section">
+                <div className="graph-sidebar__section-heading">Recents</div>
+                {recentGraphs.map(renderGraphRow)}
+              </div>
+            )}
+
+            {!visibleGraphs.length && (
+              <p className="graph-list__empty">No local graphs match your search.</p>
+            )}
+          </nav>
+        </div>
+      )}
+
+      <div className="graph-sidebar__account">
+        {showAccountNote && !collapsed && (
+          <div className="account-note" role="status">
+            <strong>Local workspace</strong>
+            <p>Sign in to sync your graphs across devices.</p>
+          </div>
+        )}
+        <button
+          className="account-button"
+          type="button"
+          onClick={() => {
+            if (collapsed) {
+              onToggle()
+              return
+            }
+
+            setShowAccountNote((currentValue) => !currentValue)
+          }}
+          title={collapsed ? 'Guest account' : undefined}
+        >
+          <span className="account-button__avatar" aria-hidden="true">
+            <AppIcon name="user" />
+          </span>
+          {!collapsed && (
+            <span className="account-button__copy">
+              <strong>Log in</strong>
+              <small>Guest · Local only</small>
+            </span>
+          )}
+          {!collapsed && <AppIcon name="arrow" />}
+        </button>
+      </div>
+
+      {graphContextMenu && (
+        <GraphContextMenu
+          context={graphContextMenu}
+          onClose={() => setGraphContextMenu(null)}
+          onDelete={() => {
+            onDeleteGraph(graphContextMenu.graphId)
+            setGraphContextMenu(null)
+          }}
+        />
+      )}
+    </aside>
   )
 }
 
@@ -869,12 +1152,21 @@ function loadStoredGraph() {
     const normalizedNodes = storedGraph.nodes.map((storedNode) => {
       const node = { ...storedNode }
       delete node.dragHandle
+      const interruptedAnswer = node.data.aiStatus === 'loading'
 
       return {
         ...node,
         type: 'conversation',
         position: { ...node.position },
-        data: { ...node.data },
+        data: {
+          ...node.data,
+          ...(interruptedAnswer
+            ? {
+                aiStatus: 'error',
+                assistantMessage: 'The previous answer was interrupted.',
+              }
+            : {}),
+        },
       }
     })
     const isLegacyGraph = storedGraph.version === 1
@@ -910,7 +1202,7 @@ function loadStoredGraph() {
   }
 }
 
-function saveGraph(nodes, edges) {
+function getPersistableGraph(nodes, edges) {
   const stableNodes = nodes.filter((node) => !node.data.isPending)
   const stableNodeIds = new Set(stableNodes.map((node) => node.id))
   const persistableNodes = stableNodes.map(({ id, type, position, data }) => ({
@@ -948,14 +1240,141 @@ function saveGraph(nodes, edges) {
       }),
     )
 
+  return {
+    nodes: persistableNodes,
+    edges: persistableEdges,
+  }
+}
+
+function saveGraph(nodes, edges) {
+  const persistableGraph = getPersistableGraph(nodes, edges)
+
   window.localStorage.setItem(
     graphStorageKey,
     JSON.stringify({
       version: graphStorageVersion,
-      nodes: persistableNodes,
-      edges: persistableEdges,
+      ...persistableGraph,
     }),
   )
+}
+
+const graphLibraryStorageKey = 'knowflow.graph-library.v1'
+const graphLibraryStorageVersion = 1
+
+function createGraphId() {
+  if (window.crypto?.randomUUID) {
+    return window.crypto.randomUUID()
+  }
+
+  return `graph-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+function normalizeLibraryGraph(graph) {
+  if (
+    typeof graph?.id !== 'string' ||
+    !Array.isArray(graph?.nodes) ||
+    !Array.isArray(graph?.edges)
+  ) {
+    return null
+  }
+
+  const snapshot = cloneGraphSnapshot(graph.nodes, graph.edges)
+
+  return {
+    id: graph.id,
+    pinned: Boolean(graph.pinned),
+    createdAt: graph.createdAt ?? new Date().toISOString(),
+    updatedAt: graph.updatedAt ?? graph.createdAt ?? new Date().toISOString(),
+    nodes: snapshot.nodes.map((node) => ({
+      ...node,
+      type: 'conversation',
+      data: {
+        ...node.data,
+        ...(node.data.aiStatus === 'loading'
+          ? {
+              aiStatus: 'error',
+              assistantMessage: 'The previous answer was interrupted.',
+            }
+          : {}),
+      },
+    })),
+    edges: snapshot.edges,
+  }
+}
+
+function loadGraphLibrary() {
+  try {
+    const storedValue = window.localStorage.getItem(graphLibraryStorageKey)
+
+    if (storedValue) {
+      const storedLibrary = JSON.parse(storedValue)
+      const graphs = storedLibrary?.graphs
+        ?.map(normalizeLibraryGraph)
+        .filter(Boolean)
+
+      if (
+        storedLibrary?.version === graphLibraryStorageVersion &&
+        graphs?.length
+      ) {
+        const activeGraphId = graphs.some(
+          (graph) => graph.id === storedLibrary.activeGraphId,
+        )
+          ? storedLibrary.activeGraphId
+          : graphs[0].id
+
+        return { activeGraphId, graphs }
+      }
+    }
+  } catch {
+    // Fall through to migrate the original single local graph.
+  }
+
+  const migratedGraph = loadStoredGraph()
+  const now = new Date().toISOString()
+  const graph = {
+    id: 'local-freetoken',
+    createdAt: now,
+    updatedAt: now,
+    ...migratedGraph,
+  }
+
+  return {
+    activeGraphId: graph.id,
+    graphs: [graph],
+  }
+}
+
+function saveGraphLibrary(graphs, activeGraphId) {
+  window.localStorage.setItem(
+    graphLibraryStorageKey,
+    JSON.stringify({
+      version: graphLibraryStorageVersion,
+      activeGraphId,
+      graphs,
+    }),
+  )
+}
+
+function getGraphSummary(graph) {
+  const rootNode =
+    graph.nodes.find((node) => node.data.isRoot) ??
+    graph.nodes.find((node) => !node.data.parentId)
+
+  if (!rootNode) {
+    return 'Untitled graph'
+  }
+
+  const assistantSummary = rootNode.data.assistantMessage?.trim()
+
+  if (
+    assistantSummary &&
+    assistantSummary !== 'Thinking…' &&
+    assistantSummary !== 'This node is temporary.'
+  ) {
+    return assistantSummary
+  }
+
+  return rootNode.data.userMessage?.trim() || rootNode.data.title || 'Untitled graph'
 }
 
 function getNextNodeNumber(nodes) {
@@ -1001,7 +1420,15 @@ function getStructuralChildId(edge, nodes) {
 }
 
 function App() {
-  const [initialGraph] = useState(loadStoredGraph)
+  const [initialLibrary] = useState(loadGraphLibrary)
+  const [graphLibrary, setGraphLibrary] = useState(initialLibrary.graphs)
+  const [activeGraphId, setActiveGraphId] = useState(initialLibrary.activeGraphId)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
+  const [sidebarWidth, setSidebarWidth] = useState(loadSidebarWidth)
+  const [isResizingSidebar, setIsResizingSidebar] = useState(false)
+  const initialGraph =
+    initialLibrary.graphs.find((graph) => graph.id === initialLibrary.activeGraphId) ??
+    initialLibrary.graphs[0]
   const [nodes, setNodes, onNodesChange] = useNodesState(initialGraph.nodes)
   const [edges, setEdges] = useState(initialGraph.edges)
   const [highlightedSource, setHighlightedSource] = useState(null)
@@ -1025,6 +1452,7 @@ function App() {
   const nodesRef = useRef(nodes)
   const edgesRef = useRef(edges)
   const edgeCurveDrag = useRef({ edgeId: null, historyRecorded: false })
+  const sidebarResize = useRef(null)
   nodesRef.current = nodes
   edgesRef.current = edges
   const selectedNode = nodes.find((node) => node.id === selectedNodeId)
@@ -1035,6 +1463,10 @@ function App() {
   const selectedEdgeTarget = nodes.find(
     (node) => node.id === selectedEdge?.target,
   )
+  const activeRootNode =
+    nodes.find((node) => node.data.isRoot) ??
+    nodes.find((node) => !node.data.parentId)
+  const activeGraphHeading = activeRootNode?.data.title ?? 'Untitled graph'
   const visibleNodes = nodes.map((node) => {
     if (node.id !== highlightedSource?.parentId) {
       return node
@@ -1092,7 +1524,7 @@ function App() {
     }, 50)
 
     return () => clearTimeout(fitViewTimer)
-  }, [flowInstance, nodes.length, selectedNodeId, selectedEdgeId])
+  }, [activeGraphId, flowInstance, nodes.length, selectedNodeId, selectedEdgeId])
 
   useEffect(() => {
     setSaveStatus('saving')
@@ -1100,6 +1532,23 @@ function App() {
     const saveTimer = setTimeout(() => {
       try {
         saveGraph(nodes, edges)
+        const persistableGraph = getPersistableGraph(nodes, edges)
+        const now = new Date().toISOString()
+
+        setGraphLibrary((currentGraphs) => {
+          const updatedGraphs = currentGraphs.map((graph) =>
+            graph.id === activeGraphId
+              ? {
+                  ...graph,
+                  ...persistableGraph,
+                  updatedAt: now,
+                }
+              : graph,
+          )
+
+          saveGraphLibrary(updatedGraphs, activeGraphId)
+          return updatedGraphs
+        })
         setSaveStatus('saved')
       } catch {
         setSaveStatus('error')
@@ -1107,7 +1556,7 @@ function App() {
     }, 200)
 
     return () => clearTimeout(saveTimer)
-  }, [nodes, edges])
+  }, [activeGraphId, nodes, edges])
 
   useEffect(() => {
     function handleKeyboardShortcut(event) {
@@ -1146,6 +1595,251 @@ function App() {
     const snapshot = cloneGraphSnapshot(nodesRef.current, edgesRef.current)
 
     graphHistory.current = [...graphHistory.current.slice(-49), snapshot]
+  }
+
+  function openLocalGraph(graph, nextGraphs) {
+    const snapshot = cloneGraphSnapshot(graph.nodes, graph.edges)
+
+    saveGraphLibrary(nextGraphs, graph.id)
+    setGraphLibrary(nextGraphs)
+    setActiveGraphId(graph.id)
+    nodesRef.current = snapshot.nodes
+    edgesRef.current = snapshot.edges
+    setNodes(snapshot.nodes)
+    setEdges(snapshot.edges)
+    setSelectedNodeId(null)
+    setSelectedEdgeId(null)
+    setHighlightedSource(null)
+    setTextSelection(null)
+    setChildDraft(null)
+    setInlineChildDraft(null)
+    setCanvasAddAction(null)
+    setContextMenu(null)
+    setConnectionPreview(null)
+    setActiveConnectionSourceId(null)
+    clickConnectionSourceId.current = null
+    isClickConnecting.current = false
+    graphHistory.current = []
+    nextNodeNumber.current = getNextNodeNumber(snapshot.nodes)
+    window.getSelection()?.removeAllRanges()
+  }
+
+  function getLibraryWithCurrentGraph() {
+    const persistableGraph = getPersistableGraph(
+      nodesRef.current,
+      edgesRef.current,
+    )
+    const now = new Date().toISOString()
+
+    return graphLibrary.map((graph) =>
+      graph.id === activeGraphId
+        ? {
+            ...graph,
+            ...persistableGraph,
+            updatedAt: now,
+          }
+        : graph,
+    )
+  }
+
+  function handleSelectGraph(graphId) {
+    if (graphId === activeGraphId) {
+      return
+    }
+
+    const nextGraphs = getLibraryWithCurrentGraph()
+    const nextGraph = nextGraphs.find((graph) => graph.id === graphId)
+
+    if (!nextGraph) {
+      return
+    }
+
+    openLocalGraph(nextGraph, nextGraphs)
+  }
+
+  function handleCreateGraph() {
+    const now = new Date().toISOString()
+    const newGraph = {
+      id: createGraphId(),
+      pinned: false,
+      createdAt: now,
+      updatedAt: now,
+      nodes: [],
+      edges: [],
+    }
+    const nextGraphs = [...getLibraryWithCurrentGraph(), newGraph]
+
+    openLocalGraph(newGraph, nextGraphs)
+  }
+
+  function handleToggleGraphPin(graphId) {
+    const nextGraphs = getLibraryWithCurrentGraph().map((graph) =>
+      graph.id === graphId
+        ? {
+            ...graph,
+            pinned: !graph.pinned,
+          }
+        : graph,
+    )
+
+    setGraphLibrary(nextGraphs)
+    saveGraphLibrary(nextGraphs, activeGraphId)
+  }
+
+  function handleDeleteGraph(graphId) {
+    let nextGraphs = getLibraryWithCurrentGraph().filter(
+      (graph) => graph.id !== graphId,
+    )
+
+    if (!nextGraphs.length) {
+      const now = new Date().toISOString()
+      nextGraphs = [
+        {
+          id: createGraphId(),
+          pinned: false,
+          createdAt: now,
+          updatedAt: now,
+          nodes: [],
+          edges: [],
+        },
+      ]
+    }
+
+    if (graphId === activeGraphId) {
+      const nextGraph = [...nextGraphs].sort((first, second) => {
+        const pinnedDifference =
+          Number(Boolean(second.pinned)) - Number(Boolean(first.pinned))
+
+        if (pinnedDifference) {
+          return pinnedDifference
+        }
+
+        return (
+          new Date(second.updatedAt).getTime() -
+          new Date(first.updatedAt).getTime()
+        )
+      })[0]
+
+      openLocalGraph(nextGraph, nextGraphs)
+      return
+    }
+
+    setGraphLibrary(nextGraphs)
+    saveGraphLibrary(nextGraphs, activeGraphId)
+  }
+
+  async function requestAiAnswer(nodeId, nodeSnapshot = null) {
+    const node =
+      nodeSnapshot ?? nodesRef.current.find((candidate) => candidate.id === nodeId)
+
+    if (!node || node.data.isPending) {
+      return
+    }
+
+    const parentNode = node.data.parentId
+      ? nodesRef.current.find((candidate) => candidate.id === node.data.parentId)
+      : null
+
+    setNodes((currentNodes) =>
+      currentNodes.map((currentNode) =>
+        currentNode.id === nodeId
+          ? {
+              ...currentNode,
+              data: {
+                ...currentNode.data,
+                aiStatus: 'loading',
+                assistantMessage: 'Thinking…',
+                aiError: undefined,
+              },
+            }
+          : currentNode,
+      ),
+    )
+
+    const requestController = new AbortController()
+    const timeout = window.setTimeout(
+      () => requestController.abort(),
+      aiRequestTimeoutMs,
+    )
+
+    try {
+      if (!aiApiBaseUrl) {
+        throw new Error('The AI service is not configured yet.')
+      }
+
+      const response = await fetch(`${aiApiBaseUrl}/api/answer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: requestController.signal,
+        body: JSON.stringify({
+          title: node.data.title,
+          question: node.data.userMessage,
+          source: node.data.sourceTerm
+            ? {
+                text: node.data.sourceTerm,
+                role: node.data.sourceMessageRole ?? 'assistant',
+              }
+            : null,
+          parentConversation: parentNode
+            ? {
+                title: parentNode.data.title,
+                userMessage: parentNode.data.userMessage,
+                assistantMessage: parentNode.data.assistantMessage,
+              }
+            : null,
+        }),
+      })
+      const responseBody = await response.json().catch(() => null)
+
+      if (!response.ok) {
+        throw new Error(responseBody?.error ?? 'The AI service could not answer.')
+      }
+
+      const answer = responseBody?.answer?.trim()
+
+      if (!answer) {
+        throw new Error('The AI service returned an empty answer.')
+      }
+
+      setNodes((currentNodes) =>
+        currentNodes.map((currentNode) =>
+          currentNode.id === nodeId
+            ? {
+                ...currentNode,
+                data: {
+                  ...currentNode.data,
+                  aiStatus: 'complete',
+                  assistantMessage: answer,
+                  aiError: undefined,
+                },
+              }
+            : currentNode,
+        ),
+      )
+    } catch (error) {
+      const message =
+        error.name === 'AbortError'
+          ? 'The AI request timed out.'
+          : error.message || 'The AI service could not answer.'
+
+      setNodes((currentNodes) =>
+        currentNodes.map((currentNode) =>
+          currentNode.id === nodeId
+            ? {
+                ...currentNode,
+                data: {
+                  ...currentNode.data,
+                  aiStatus: 'error',
+                  assistantMessage: 'Couldn’t generate an answer.',
+                  aiError: message,
+                },
+              }
+            : currentNode,
+        ),
+      )
+    } finally {
+      window.clearTimeout(timeout)
+    }
   }
 
   function handleEdgeCurveDragStart(edgeId) {
@@ -1445,6 +2139,25 @@ function App() {
     }
 
     const { nodeId } = inlineChildDraft
+    const draftNode = nodesRef.current.find((node) => node.id === nodeId)
+
+    if (!draftNode) {
+      return
+    }
+
+    const stableData = { ...draftNode.data }
+    delete stableData.isPending
+    delete stableData.isInlineDraft
+    const completedNode = {
+      ...draftNode,
+      data: {
+        ...stableData,
+        title: childDetails.title,
+        userMessage: childDetails.question,
+        assistantMessage: 'Thinking…',
+        aiStatus: 'loading',
+      },
+    }
     const graphBeforeChild = cloneGraphSnapshot(
       nodesRef.current.filter((node) => node.id !== nodeId),
       edgesRef.current.filter(
@@ -1455,25 +2168,7 @@ function App() {
     removeInlineDraftFromHistory(nodeId)
     graphHistory.current = [...graphHistory.current.slice(-49), graphBeforeChild]
     setNodes((currentNodes) =>
-      currentNodes.map((node) => {
-        if (node.id !== nodeId) {
-          return node
-        }
-
-        const stableData = { ...node.data }
-        delete stableData.isPending
-        delete stableData.isInlineDraft
-
-        return {
-          ...node,
-          data: {
-            ...stableData,
-            title: childDetails.title,
-            userMessage: childDetails.question,
-            assistantMessage: 'No answer yet.',
-          },
-        }
-      }),
+      currentNodes.map((node) => (node.id === nodeId ? completedNode : node)),
     )
     setEdges((currentEdges) =>
       currentEdges.map((edge) => {
@@ -1494,10 +2189,13 @@ function App() {
     setInlineChildDraft(null)
     setSelectedNodeId(nodeId)
     setChildDraft(null)
+    void requestAiAnswer(nodeId, completedNode)
   }
 
   function createPendingNode(position, parentId = null) {
     const parentNode = parentId ? nodes.find((node) => node.id === parentId) : null
+    const isFirstRootNode =
+      !parentId && !nodes.some((node) => !node.data.isPending)
 
     if (parentId && !parentNode) {
       return
@@ -1516,11 +2214,14 @@ function App() {
       data: {
         title: 'New node',
         parentId: parentId ?? undefined,
+        isRoot: isFirstRootNode || undefined,
         userMessage: 'Waiting for your question…',
         assistantMessage: 'This node is temporary.',
         origin: parentNode
           ? `Created from a new connection from the ${parentNode.data.title} node.`
-          : 'Created from the canvas.',
+          : isFirstRootNode
+            ? 'Starting question for this knowledge graph.'
+            : 'Created from the canvas.',
         isPending: true,
       },
     }
@@ -1585,30 +2286,29 @@ function App() {
   }
 
   function completePendingNode(nodeId, nodeDetails) {
-    if (!nodes.some((node) => node.id === nodeId && node.data.isPending)) {
+    const pendingNode = nodesRef.current.find(
+      (node) => node.id === nodeId && node.data.isPending,
+    )
+
+    if (!pendingNode) {
       return
     }
 
     recordGraphHistory()
+    const stableData = { ...pendingNode.data }
+    delete stableData.isPending
+    const completedNode = {
+      ...pendingNode,
+      data: {
+        ...stableData,
+        title: nodeDetails.title,
+        userMessage: nodeDetails.question,
+        assistantMessage: 'Thinking…',
+        aiStatus: 'loading',
+      },
+    }
     setNodes((currentNodes) =>
-      currentNodes.map((node) => {
-        if (node.id !== nodeId || !node.data.isPending) {
-          return node
-        }
-
-        const stableData = { ...node.data }
-        delete stableData.isPending
-
-        return {
-          ...node,
-          data: {
-            ...stableData,
-            title: nodeDetails.title,
-            userMessage: nodeDetails.question,
-            assistantMessage: 'No answer yet.',
-          },
-        }
-      }),
+      currentNodes.map((node) => (node.id === nodeId ? completedNode : node)),
     )
     setEdges((currentEdges) =>
       currentEdges.map((edge) => {
@@ -1626,6 +2326,7 @@ function App() {
         }
       }),
     )
+    void requestAiAnswer(nodeId, completedNode)
   }
 
   function handlePaneContextMenu(event) {
@@ -1947,17 +2648,113 @@ function App() {
     )
   }
 
+  function beginSidebarResize(event) {
+    if (isSidebarCollapsed || event.button !== 0) {
+      return
+    }
+
+    event.preventDefault()
+    sidebarResize.current = {
+      startX: event.clientX,
+      startWidth: sidebarWidth,
+      lastWidth: sidebarWidth,
+    }
+    setIsResizingSidebar(true)
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+  }
+
+  function updateSidebarWidth(event) {
+    if (!sidebarResize.current) {
+      return
+    }
+
+    event.preventDefault()
+    const nextWidth = clampSidebarWidth(
+      sidebarResize.current.startWidth +
+        event.clientX -
+        sidebarResize.current.startX,
+    )
+
+    sidebarResize.current.lastWidth = nextWidth
+    setSidebarWidth(nextWidth)
+  }
+
+  function finishSidebarResize() {
+    if (!sidebarResize.current) {
+      return
+    }
+
+    const finalWidth = sidebarResize.current.lastWidth
+
+    sidebarResize.current = null
+    setIsResizingSidebar(false)
+    window.localStorage.setItem(sidebarWidthStorageKey, String(finalWidth))
+  }
+
+  function handleSidebarResizeKeyDown(event) {
+    if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) {
+      return
+    }
+
+    event.preventDefault()
+    const nextWidth = clampSidebarWidth(
+      sidebarWidth + (event.key === 'ArrowLeft' ? -12 : 12),
+    )
+
+    setSidebarWidth(nextWidth)
+    window.localStorage.setItem(sidebarWidthStorageKey, String(nextWidth))
+  }
+
+  function resetSidebarWidth() {
+    setSidebarWidth(defaultSidebarWidth)
+    window.localStorage.setItem(
+      sidebarWidthStorageKey,
+      String(defaultSidebarWidth),
+    )
+  }
+
   return (
-    <main className="app-shell">
+    <div
+      className={`app-layout ${isSidebarCollapsed ? 'app-layout--sidebar-collapsed' : ''} ${isResizingSidebar ? 'app-layout--resizing-sidebar' : ''}`}
+      style={{ '--sidebar-width': `${sidebarWidth}px` }}
+    >
+      <GraphSidebar
+        activeGraphId={activeGraphId}
+        collapsed={isSidebarCollapsed}
+        graphs={graphLibrary}
+        onCreateGraph={handleCreateGraph}
+        onDeleteGraph={handleDeleteGraph}
+        onSelectGraph={handleSelectGraph}
+        onToggleGraphPin={handleToggleGraphPin}
+        onToggle={() => setIsSidebarCollapsed((currentValue) => !currentValue)}
+      />
+
+      {!isSidebarCollapsed && (
+        <div
+          className="sidebar-resize-handle"
+          role="separator"
+          aria-label="Resize graph sidebar"
+          aria-orientation="vertical"
+          aria-valuemin={minimumSidebarWidth}
+          aria-valuemax={maximumSidebarWidth}
+          aria-valuenow={sidebarWidth}
+          tabIndex={0}
+          onPointerDown={beginSidebarResize}
+          onPointerMove={updateSidebarWidth}
+          onPointerUp={finishSidebarResize}
+          onLostPointerCapture={finishSidebarResize}
+          onKeyDown={handleSidebarResizeKeyDown}
+          onDoubleClick={resetSidebarWidth}
+        />
+      )}
+
+      <main className="app-shell">
       <header className="app-header">
-        <div>
-          <p className="eyebrow">AI-assisted learning workspace</p>
-          <h1>KnowFlow</h1>
+        <div className="app-header__title">
+          <h1>{activeGraphHeading}</h1>
+          <span>Local</span>
         </div>
         <div className="app-header__actions">
-          <p className="hint">
-            Right-click for actions. Use a node’s + to connect. Ctrl/⌘+Z to undo.
-          </p>
           <span
             className={`save-status save-status--${saveStatus}`}
             aria-live="polite"
@@ -1966,7 +2763,7 @@ function App() {
               ? 'Saving…'
               : saveStatus === 'error'
                 ? 'Could not save'
-                : 'Saved locally'}
+                : 'Saved on this device'}
           </span>
         </div>
       </header>
@@ -2042,6 +2839,13 @@ function App() {
             <Controls showInteractive={false} />
           </ReactFlow>
 
+          {!nodes.length && (
+            <div className="empty-graph" aria-live="polite">
+              <h2>New graph</h2>
+              <p>Right-click the canvas and choose + to add the first conversation.</p>
+            </div>
+          )}
+
           {connectionPreview && (
             <svg className="connection-preview" aria-hidden="true">
               <path
@@ -2070,7 +2874,7 @@ function App() {
                 handleCanvasAdd()
               }}
             >
-              +
+              <AppIcon name="plus" />
             </button>
           )}
         </section>
@@ -2116,6 +2920,7 @@ function App() {
             onAddChild={(childDetails) =>
               completeInlineChildDraft(selectedNode.id, childDetails)
             }
+            onRetry={() => requestAiAnswer(selectedNode.id)}
             onClose={() => {
               setSelectedNodeId(null)
               setChildDraft(null)
@@ -2144,7 +2949,8 @@ function App() {
           onDelete={handleContextMenuDelete}
         />
       )}
-    </main>
+      </main>
+    </div>
   )
 }
 
