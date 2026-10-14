@@ -801,7 +801,6 @@ function GraphSidebar({
           <span>
             <strong>{graphSummary}</strong>
             <small>
-              {graph.id === 'local-freetoken' ? 'Example · ' : ''}
               {graph.nodes.length} node{graph.nodes.length === 1 ? '' : 's'}
             </small>
           </span>
@@ -2752,11 +2751,11 @@ function App() {
       <main className="app-shell">
       <header className="app-header">
         <div className="app-header__title">
-          <h1>{activeGraphHeading}</h1>
-          <span>
-            {activeGraphId === 'local-freetoken' ? 'Example graph · ' : ''}
-            Local
-          </span>
+          <h1>
+            {activeGraphId === 'local-freetoken' ? 'Example: ' : ''}
+            {activeGraphHeading}
+          </h1>
+          <span>Local</span>
         </div>
         <div className="app-header__actions">
           <span
