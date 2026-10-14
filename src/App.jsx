@@ -799,7 +799,10 @@ function GraphSidebar({
         >
           <AppIcon name="graph" />
           <span>
-            <strong>{graphSummary}</strong>
+            <strong>
+              {graph.id === 'local-freetoken' ? 'Example: ' : ''}
+              {graphSummary}
+            </strong>
             <small>
               {graph.nodes.length} node{graph.nodes.length === 1 ? '' : 's'}
             </small>
