@@ -1260,13 +1260,13 @@ h1 {
 .graph-context-menu {
   position: fixed;
   z-index: 1100;
-  width: 220px;
+  width: 208px;
   overflow: hidden;
-  padding: 8px;
-  border: 1px solid #dce3ed;
-  border-radius: 12px;
-  background: #ffffff;
-  box-shadow: 0 14px 34px rgb(30 41 59 / 20%);
+  padding: 4px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-medium);
+  background: var(--color-surface);
+  box-shadow: 0 8px 24px rgb(36 36 34 / 12%);
 }
 
 .graph-context-menu__target,
@@ -1276,38 +1276,40 @@ h1 {
 
 .graph-context-menu__target {
   overflow: hidden;
-  padding: 4px 8px 7px;
-  color: #6c788c;
-  font-size: 0.7rem;
-  font-weight: 750;
+  padding: 6px 8px 5px;
+  color: var(--color-text-secondary);
+  font-size: 0.68rem;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .graph-context-menu button {
   width: 100%;
-  padding: 9px 10px;
+  padding: 7px 8px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-small);
   color: #b42318;
   background: transparent;
   cursor: pointer;
   text-align: left;
-  font-size: 0.82rem;
-  font-weight: 750;
+  font-size: 0.78rem;
+  font-weight: 600;
 }
 
 .graph-context-menu button:hover,
 .graph-context-menu button:focus-visible {
-  color: #8f1811;
-  background: #fff0ee;
+  color: #9b2118;
+  background: #f7e9e7;
   outline: none;
 }
 
 .graph-context-menu__note {
-  padding: 6px 8px 4px;
-  color: #7a879b;
-  font-size: 0.68rem;
+  margin-top: 4px;
+  padding: 7px 8px 6px;
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: 0.65rem;
   line-height: 1.4;
 }
 
