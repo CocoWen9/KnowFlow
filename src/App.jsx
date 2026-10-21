@@ -14,6 +14,17 @@ import {
   useNodesState,
   useReactFlow,
 } from '@xyflow/react'
+import {
+  ContextReceipt,
+  ContextSelector,
+  useContextPlan,
+} from './ContextSelector.jsx'
+import {
+  buildContextCandidates,
+  createContextPlan,
+  defaultContextTokenBudget,
+  suggestContextCandidateIds,
+} from './contextSelection.js'
 
 const aiApiBaseUrl = (import.meta.env.VITE_AI_API_URL ?? '').replace(/\/$/, '')
 const aiRequestTimeoutMs = 45_000
@@ -277,6 +288,7 @@ function HighlightedText({ text, term }) {
 }
 
 function NodeDetails({
+  contextCandidates,
   draftNodeId,
   initialChildTitle,
   node,
@@ -290,8 +302,10 @@ function NodeDetails({
   const [childTitle, setChildTitle] = useState(initialChildTitle ?? '')
   const [childQuestion, setChildQuestion] = useState('')
   const childDraftStarted = useRef(false)
-  const childDraftStatusMounted = useRef(false)
-  const canAddChild = childTitle.trim() && childQuestion.trim()
+  const previousDraftNodeId = useRef(draftNodeId)
+  const contextController = useContextPlan(contextCandidates, childQuestion)
+  const canAddChild =
+    childTitle.trim() && childQuestion.trim() && !contextController.isOverBudget
 
   function beginChildDraft() {
     setIsAddingChild(true)
@@ -311,12 +325,10 @@ function NodeDetails({
   }, [])
 
   useEffect(() => {
-    if (!childDraftStatusMounted.current) {
-      childDraftStatusMounted.current = true
-      return
-    }
+    const previousDraftId = previousDraftNodeId.current
+    previousDraftNodeId.current = draftNodeId
 
-    if (childDraftStarted.current && !draftNodeId) {
+    if (childDraftStarted.current && previousDraftId && !draftNodeId) {
       childDraftStarted.current = false
       setIsAddingChild(false)
     }
@@ -333,6 +345,7 @@ function NodeDetails({
     onAddChild({
       title: childTitle.trim(),
       question: childQuestion.trim(),
+      contextPlan: contextController.plan,
     })
   }
 
@@ -399,6 +412,8 @@ function NodeDetails({
         </div>
       </section>
 
+      <ContextReceipt plan={node.data.aiContext} />
+
       <section className="details-section details-section--add-child">
         {!isAddingChild ? (
           <button
@@ -432,9 +447,12 @@ function NodeDetails({
                 onChange={(event) => setChildQuestion(event.target.value)}
                 placeholder="What would you like to understand?"
                 rows="3"
+                maxLength="4000"
                 required
               />
             </div>
+
+            <ContextSelector controller={contextController} />
 
             <p className="child-form__note">
               The AI will answer after this child is created.
@@ -459,10 +477,12 @@ function NodeDetails({
   )
 }
 
-function PendingNodeDetails({ node, onDiscard, onSave }) {
+function PendingNodeDetails({ contextCandidates, node, onDiscard, onSave }) {
   const [title, setTitle] = useState('')
   const [question, setQuestion] = useState('')
-  const canSave = title.trim() && question.trim()
+  const contextController = useContextPlan(contextCandidates, question)
+  const canSave =
+    title.trim() && question.trim() && !contextController.isOverBudget
 
   function handleSubmit(event) {
     event.preventDefault()
@@ -474,6 +494,7 @@ function PendingNodeDetails({ node, onDiscard, onSave }) {
     onSave({
       title: title.trim(),
       question: question.trim(),
+      contextPlan: contextController.plan,
     })
   }
 
@@ -528,9 +549,12 @@ function PendingNodeDetails({ node, onDiscard, onSave }) {
             onChange={(event) => setQuestion(event.target.value)}
             placeholder="What would you like to understand?"
             rows="5"
+            maxLength="4000"
             required
           />
         </div>
+
+        <ContextSelector controller={contextController} />
 
         <p className="child-form__note">
           This node remains temporary until you create it. The AI answer starts
@@ -1422,6 +1446,41 @@ function getStructuralChildId(edge, nodes) {
   return null
 }
 
+function getAutomaticContextPlan(node, nodes, edges) {
+  if (!node?.data?.parentId) {
+    return createContextPlan({
+      candidates: [],
+      selectedIds: new Set(),
+      selectionMode: 'automatic',
+      tokenBudget: defaultContextTokenBudget,
+    })
+  }
+
+  const candidates = buildContextCandidates({
+    nodes,
+    edges,
+    parentNodeId: node.data.parentId,
+    source: node.data.sourceTerm
+      ? {
+          text: node.data.sourceTerm,
+          role: node.data.sourceMessageRole ?? 'assistant',
+        }
+      : null,
+  })
+  const selectedIds = suggestContextCandidateIds(
+    candidates,
+    node.data.userMessage,
+    defaultContextTokenBudget,
+  )
+
+  return createContextPlan({
+    candidates,
+    selectedIds,
+    selectionMode: 'automatic',
+    tokenBudget: defaultContextTokenBudget,
+  })
+}
+
 function App() {
   const [initialLibrary] = useState(loadGraphLibrary)
   const [graphLibrary, setGraphLibrary] = useState(initialLibrary.graphs)
@@ -1466,6 +1525,40 @@ function App() {
   const selectedEdgeTarget = nodes.find(
     (node) => node.id === selectedEdge?.target,
   )
+  const inlineDraftNode = nodes.find(
+    (node) => node.id === inlineChildDraft?.nodeId,
+  )
+  const childContextSource =
+    childDraft && selectedNode && childDraft.nodeId === selectedNode.id
+      ? { text: childDraft.text, role: childDraft.role }
+      : inlineDraftNode?.data?.sourceTerm
+        ? {
+            text: inlineDraftNode.data.sourceTerm,
+            role: inlineDraftNode.data.sourceMessageRole ?? 'assistant',
+          }
+        : null
+  const nodeDetailsContextCandidates =
+    selectedNode && !selectedNode.data.isPending
+      ? buildContextCandidates({
+          nodes,
+          edges,
+          parentNodeId: selectedNode.id,
+          source: childContextSource,
+        })
+      : []
+  const pendingNodeContextCandidates = selectedNode?.data.isPending
+    ? buildContextCandidates({
+        nodes,
+        edges,
+        parentNodeId: selectedNode.data.parentId,
+        source: selectedNode.data.sourceTerm
+          ? {
+              text: selectedNode.data.sourceTerm,
+              role: selectedNode.data.sourceMessageRole ?? 'assistant',
+            }
+          : null,
+      })
+    : []
   const activeRootNode =
     nodes.find((node) => node.data.isRoot) ??
     nodes.find((node) => !node.data.parentId)
@@ -1742,6 +1835,15 @@ function App() {
     const parentNode = node.data.parentId
       ? nodesRef.current.find((candidate) => candidate.id === node.data.parentId)
       : null
+    const contextPlan = Array.isArray(node.data.aiContext?.blocks)
+      ? node.data.aiContext
+      : getAutomaticContextPlan(node, nodesRef.current, edgesRef.current)
+    const includesSelectedSource = contextPlan.blocks.some(
+      (block) => block.sourceType === 'selected-text',
+    )
+    const includesParentConversation = contextPlan.blocks.some(
+      (block) => block.sourceType === 'parent',
+    )
 
     setNodes((currentNodes) =>
       currentNodes.map((currentNode) =>
@@ -1753,6 +1855,7 @@ function App() {
                 aiStatus: 'loading',
                 assistantMessage: 'Thinking…',
                 aiError: undefined,
+                aiContext: contextPlan,
               },
             }
           : currentNode,
@@ -1777,19 +1880,22 @@ function App() {
         body: JSON.stringify({
           title: node.data.title,
           question: node.data.userMessage,
-          source: node.data.sourceTerm
+          source: includesSelectedSource && node.data.sourceTerm
             ? {
                 text: node.data.sourceTerm,
                 role: node.data.sourceMessageRole ?? 'assistant',
               }
             : null,
-          parentConversation: parentNode
+          parentConversation: includesParentConversation && parentNode
             ? {
                 title: parentNode.data.title,
                 userMessage: parentNode.data.userMessage,
                 assistantMessage: parentNode.data.assistantMessage,
               }
             : null,
+          contextBlocks: contextPlan.blocks,
+          contextStrategy: contextPlan.strategy,
+          tokenBudget: contextPlan.tokenBudget,
         }),
       })
       const responseBody = await response.json().catch(() => null)
@@ -2007,7 +2113,8 @@ function App() {
     setTextSelection({
       nodeId: nodeElement.dataset.conversationNodeId,
       role: messageElement.dataset.messageRole,
-      text: selectionText.slice(0, 120),
+      text: selectionText.slice(0, 500),
+      titleText: selectionText.slice(0, 120),
       x: actionX,
       y: actionY,
     })
@@ -2159,6 +2266,7 @@ function App() {
         userMessage: childDetails.question,
         assistantMessage: 'Thinking…',
         aiStatus: 'loading',
+        aiContext: childDetails.contextPlan,
       },
     }
     const graphBeforeChild = cloneGraphSnapshot(
@@ -2308,6 +2416,7 @@ function App() {
         userMessage: nodeDetails.question,
         assistantMessage: 'Thinking…',
         aiStatus: 'loading',
+        aiContext: nodeDetails.contextPlan,
       },
     }
     setNodes((currentNodes) =>
@@ -2899,6 +3008,7 @@ function App() {
         ) : selectedNode?.data.isPending ? (
           <PendingNodeDetails
             key={selectedNode.id}
+            contextCandidates={pendingNodeContextCandidates}
             node={selectedNode}
             onDiscard={() => discardPendingNode(selectedNode.id)}
             onSave={(nodeDetails) => completePendingNode(selectedNode.id, nodeDetails)}
@@ -2906,13 +3016,16 @@ function App() {
         ) : selectedNode ? (
           <NodeDetails
             key={`${selectedNode.id}-${childDraft?.requestId ?? 'manual'}`}
+            contextCandidates={nodeDetailsContextCandidates}
             draftNodeId={
               inlineChildDraft?.parentId === selectedNode.id
                 ? inlineChildDraft.nodeId
                 : null
             }
             initialChildTitle={
-              childDraft?.nodeId === selectedNode.id ? childDraft.text : ''
+              childDraft?.nodeId === selectedNode.id
+                ? childDraft.titleText ?? childDraft.text.slice(0, 120)
+                : ''
             }
             node={selectedNode}
             onStartChild={({ title }) =>

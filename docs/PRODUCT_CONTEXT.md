@@ -52,7 +52,7 @@ Edges are first-class knowledge objects, not merely lines between visually adjac
 - A user-written note.
 - Semantic meaning.
 - The origin of the relationship.
-- Selected context in a future version.
+- Optional context provenance when the connected node is selected for an AI request.
 
 Potential relationship types include `follow-up`, `related to`, `explains`, `example of`, `depends on`, `contradicts`, `compares with`, and `user note`.
 
@@ -94,19 +94,33 @@ GPU - - - VRAM   (related to; “GPU mainly works with VRAM.”)
 
 ## Context semantics
 
-Context logic is an important future design area, but it should not be over-engineered in the first prototype.
+Context selection is graph-aware but remains explicit and inspectable. Before a
+new child question is sent, KnowFlow builds candidates from the immediate
+parent, up to four ancestor conversations, and nodes connected to that lineage
+by explicit non-follow-up semantic edges. An exact source selection is a
+separate context block. Ordinary sibling relationships alone never make a node
+eligible.
 
-A node may eventually use its own conversation, its parent context, explicitly selected related nodes, and selected edge context. By default, a node should mainly know its own content and parent context. Sibling nodes must not automatically share context.
+The parent conversation and selected source text are included by default.
+Optional candidates are ranked against the new question and suggested only
+when they fit the chosen token budget. The user can inspect the exact text,
+select or remove any block, change the budget, or send no graph context. Visual
+position never participates in selection.
 
-The following questions are deliberately unresolved and must be explored gradually rather than answered through strong implementation assumptions:
+Each submitted node stores an immutable context snapshot containing the text,
+node provenance, relationship, selection method, and budget. Retry reuses that
+snapshot even if the live graph later changes. The Worker accepts only
+structured, length-limited context blocks, treats their contents as untrusted
+reference material, and does not allow a block to act as a system instruction.
 
-- Should edge context influence future AI prompts?
-- Should users manually select related context?
-- What happens if a node changes parent?
-- How should conflicting context be handled?
-- How should edge notes influence context?
+The following questions remain open and should be explored with evaluation
+rather than hidden automation:
+
+- How should conflicting or contradictory selected blocks be presented?
+- Should users be able to reorder context priority manually?
+- When should embeddings or a learned reranker replace lexical relevance?
 - Can a node have multiple semantic parents?
-- Should users see a context preview before asking AI?
+- How should grounded sources and citations be attached to AI answers?
 
 Early versions should not automatically resolve contradictions. Users may explicitly mark relationships such as `contradicts`, `compares with`, or `alternative explanation`. AI-assisted contradiction detection is a possible future feature, not part of the early MVP.
 

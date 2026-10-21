@@ -82,9 +82,16 @@ local graph library, and reloading restores the active graph.
 Newly saved question nodes now request a live answer from Cloudflare Workers AI.
 While the request is running, the same node displays **Thinking…**; successful
 responses update that node in place, while failed requests keep the node and
-offer **Retry** in Node Details. The request includes only the new question, its
-parent conversation, and any explicitly selected source text—sibling nodes are
-not added as context.
+offer **Retry** in Node Details.
+
+Before creating a child, users can preview and control the graph context sent to
+the model. The immediate parent and any explicitly selected source text are
+included by default. KnowFlow ranks ancestor conversations and nodes joined by
+explicit semantic edges against the new question, suggests relevant candidates
+within a configurable context budget, and lets the user override every choice.
+Ordinary sibling branches are excluded. The chosen blocks retain their graph
+provenance and are saved as a snapshot on the new node, so Retry uses the same
+context instead of silently rebuilding it from a changed graph.
 
 The public React app remains on GitHub Pages. Its AI endpoint is a separate
 Cloudflare Worker using a Workers AI binding, so no model credential is stored
@@ -117,6 +124,12 @@ Run the Worker locally with:
 
 ```bash
 npm run worker:dev
+```
+
+Run the context-selection and Worker prompt contract tests with:
+
+```bash
+npm test
 ```
 
 The frontend reads the public Worker URL from `VITE_AI_API_URL`. This URL is an
