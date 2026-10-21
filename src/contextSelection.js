@@ -1,11 +1,15 @@
 export const defaultContextTokenBudget = 2400
 
-export const contextTokenBudgetOptions = [1200, 2400, 3600]
+const minimumContextTokenBudget = 800
+const maximumContextTokenBudget = 4000
 
 const maximumConversationCharacters = 4800
 const maximumSelectedTextCharacters = 1200
 const maximumSuggestedBlocks = 3
 const maximumContextCandidates = 12
+const maximumContextTitleCharacters = 160
+const maximumRelationshipCharacters = 240
+const maximumContextTextCharacters = 8000
 const englishStopWords = new Set([
   'and',
   'are',
@@ -57,6 +61,10 @@ function truncateText(value, maximumCharacters) {
 
   if (text.length <= maximumCharacters) {
     return text
+  }
+
+  if (maximumCharacters <= 2) {
+    return text.slice(0, Math.max(0, maximumCharacters))
   }
 
   const headLength = Math.ceil(maximumCharacters * 0.68)
@@ -124,17 +132,27 @@ function createCandidate({
   text,
   title,
 }) {
-  const normalizedText = normalizeText(text)
+  const normalizedTitle =
+    normalizeWhitespace(title).slice(0, maximumContextTitleCharacters) ||
+    'Untitled context'
+  const normalizedRelationship = normalizeWhitespace(relationship).slice(
+    0,
+    maximumRelationshipCharacters,
+  )
+  const normalizedText = normalizeText(text).slice(
+    0,
+    maximumContextTextCharacters,
+  )
   const estimatedTokens = estimateContextTokens(
-    `${title}\n${relationship}\n${normalizedText}`,
+    `${normalizedTitle}\n${normalizedRelationship}\n${normalizedText}`,
   )
 
   return {
     id,
     nodeId,
     sourceType,
-    relationship,
-    title,
+    relationship: normalizedRelationship,
+    title: normalizedTitle,
     text: normalizedText,
     defaultSelected,
     depth,
@@ -347,72 +365,168 @@ export function rankContextCandidates(candidates, question) {
     .map(({ originalIndex, ...candidate }) => candidate)
 }
 
-export function suggestContextCandidateIds(
+function normalizeTokenBudget(value) {
+  const requestedBudget = Number(value)
+
+  return Number.isFinite(requestedBudget)
+    ? Math.min(
+        maximumContextTokenBudget,
+        Math.max(minimumContextTokenBudget, Math.round(requestedBudget)),
+      )
+    : defaultContextTokenBudget
+}
+
+function estimateCandidateTokens(candidate, text = candidate.text) {
+  return estimateContextTokens(
+    `${candidate.title}\n${candidate.relationship}\n${text}`,
+  )
+}
+
+function fitCandidateToBudget(candidate, tokenBudget) {
+  if (!candidate.text || tokenBudget <= 0) {
+    return null
+  }
+
+  const fullEstimate = estimateCandidateTokens(candidate)
+
+  if (fullEstimate <= tokenBudget) {
+    return { ...candidate, estimatedTokens: fullEstimate }
+  }
+
+  const minimumText = candidate.text.slice(0, 1)
+  const minimumEstimate = estimateCandidateTokens(candidate, minimumText)
+
+  if (minimumEstimate > tokenBudget) {
+    return null
+  }
+
+  let lowerBound = 1
+  let upperBound = candidate.text.length
+  let fittedText = minimumText
+  let fittedEstimate = minimumEstimate
+
+  while (lowerBound <= upperBound) {
+    const midpoint = Math.floor((lowerBound + upperBound) / 2)
+    const nextText = truncateText(candidate.text, midpoint)
+    const nextEstimate = estimateCandidateTokens(candidate, nextText)
+
+    if (nextEstimate <= tokenBudget) {
+      fittedText = nextText
+      fittedEstimate = nextEstimate
+      lowerBound = midpoint + 1
+    } else {
+      upperBound = midpoint - 1
+    }
+  }
+
+  return {
+    ...candidate,
+    text: fittedText,
+    estimatedTokens: fittedEstimate,
+    truncated: true,
+  }
+}
+
+function fitDefaultCandidates(candidates, tokenBudget) {
+  const rawTokenTotal = candidates.reduce(
+    (total, candidate) => total + candidate.estimatedTokens,
+    0,
+  )
+
+  if (rawTokenTotal <= tokenBudget) {
+    return candidates
+  }
+
+  const minimumEstimates = candidates.map((candidate) =>
+    estimateCandidateTokens(candidate, candidate.text.slice(0, 1)),
+  )
+  let remainingBudget = tokenBudget
+  let remainingRawTokens = rawTokenTotal
+
+  return candidates.flatMap((candidate, index) => {
+    const reservedForRemaining = minimumEstimates
+      .slice(index + 1)
+      .reduce((total, estimate) => total + estimate, 0)
+    const maximumAllowance = Math.max(0, remainingBudget - reservedForRemaining)
+    const proportionalAllowance =
+      index === candidates.length - 1
+        ? remainingBudget
+        : Math.floor(
+            (remainingBudget * candidate.estimatedTokens) /
+              Math.max(1, remainingRawTokens),
+          )
+    const allowance = Math.min(
+      maximumAllowance,
+      Math.max(minimumEstimates[index], proportionalAllowance),
+    )
+    const fittedCandidate = fitCandidateToBudget(candidate, allowance)
+
+    remainingRawTokens -= candidate.estimatedTokens
+
+    if (!fittedCandidate) {
+      return []
+    }
+
+    remainingBudget -= fittedCandidate.estimatedTokens
+    return [fittedCandidate]
+  })
+}
+
+export function createAutomaticContextPlan({
   candidates,
   question,
   tokenBudget = defaultContextTokenBudget,
-) {
-  const rankedCandidates = rankContextCandidates(candidates, question)
-  const selectedIds = new Set()
-  let selectedTokens = 0
+}) {
+  const effectiveTokenBudget = normalizeTokenBudget(tokenBudget)
+  const rankedCandidates = rankContextCandidates(
+    Array.isArray(candidates) ? candidates : [],
+    question,
+  )
+  const defaultCandidates = rankedCandidates.filter(
+    (candidate) => candidate.defaultSelected,
+  )
+  const selectedCandidates = fitDefaultCandidates(
+    defaultCandidates,
+    effectiveTokenBudget,
+  )
+  let selectedTokens = selectedCandidates.reduce(
+    (total, candidate) => total + candidate.estimatedTokens,
+    0,
+  )
   let suggestedBlocks = 0
-
-  rankedCandidates.forEach((candidate) => {
-    if (!candidate.defaultSelected) {
-      return
-    }
-
-    selectedIds.add(candidate.id)
-    selectedTokens += candidate.estimatedTokens
-  })
 
   rankedCandidates.forEach((candidate) => {
     if (
       candidate.defaultSelected ||
       candidate.relevanceScore <= 0 ||
       suggestedBlocks >= maximumSuggestedBlocks ||
-      selectedTokens + candidate.estimatedTokens > tokenBudget
+      selectedTokens + candidate.estimatedTokens > effectiveTokenBudget
     ) {
       return
     }
 
-    selectedIds.add(candidate.id)
+    selectedCandidates.push(candidate)
     selectedTokens += candidate.estimatedTokens
     suggestedBlocks += 1
   })
 
-  return selectedIds
-}
-
-export function createContextPlan({
-  candidates,
-  selectedIds,
-  selectionMode,
-  tokenBudget = defaultContextTokenBudget,
-}) {
-  const blocks = candidates
-    .filter((candidate) => selectedIds.has(candidate.id))
-    .map((candidate) => ({
-      id: candidate.id,
-      nodeId: candidate.nodeId,
-      sourceType: candidate.sourceType,
-      relationship: candidate.relationship,
-      title: candidate.title,
-      text: candidate.text,
-      selectedBy:
-        candidate.sourceType === 'selected-text'
-          ? 'user'
-          : selectionMode === 'manual'
-            ? 'user'
-            : candidate.defaultSelected
-              ? 'default-policy'
-              : 'relevance-ranker',
-      estimatedTokens: candidate.estimatedTokens,
-    }))
+  const blocks = selectedCandidates.map((candidate) => ({
+    id: candidate.id,
+    nodeId: candidate.nodeId,
+    sourceType: candidate.sourceType,
+    relationship: candidate.relationship,
+    title: candidate.title,
+    text: candidate.text,
+    selectedBy: candidate.defaultSelected
+      ? 'default-policy'
+      : 'relevance-ranker',
+    estimatedTokens: candidate.estimatedTokens,
+    truncated: Boolean(candidate.truncated),
+  }))
 
   return {
-    strategy: 'graph-aware-v1',
-    tokenBudget,
+    strategy: 'graph-aware-auto-v1',
+    tokenBudget: effectiveTokenBudget,
     estimatedTokens: blocks.reduce(
       (total, block) => total + block.estimatedTokens,
       0,

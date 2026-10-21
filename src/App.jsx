@@ -14,16 +14,10 @@ import {
   useNodesState,
   useReactFlow,
 } from '@xyflow/react'
-import {
-  ContextReceipt,
-  ContextSelector,
-  useContextPlan,
-} from './ContextSelector.jsx'
+import { ContextReceipt } from './ContextReceipt.jsx'
 import {
   buildContextCandidates,
-  createContextPlan,
-  defaultContextTokenBudget,
-  suggestContextCandidateIds,
+  createAutomaticContextPlan,
 } from './contextSelection.js'
 
 const aiApiBaseUrl = (import.meta.env.VITE_AI_API_URL ?? '').replace(/\/$/, '')
@@ -303,9 +297,7 @@ function NodeDetails({
   const [childQuestion, setChildQuestion] = useState('')
   const childDraftStarted = useRef(false)
   const previousDraftNodeId = useRef(draftNodeId)
-  const contextController = useContextPlan(contextCandidates, childQuestion)
-  const canAddChild =
-    childTitle.trim() && childQuestion.trim() && !contextController.isOverBudget
+  const canAddChild = childTitle.trim() && childQuestion.trim()
 
   function beginChildDraft() {
     setIsAddingChild(true)
@@ -345,7 +337,10 @@ function NodeDetails({
     onAddChild({
       title: childTitle.trim(),
       question: childQuestion.trim(),
-      contextPlan: contextController.plan,
+      contextPlan: createAutomaticContextPlan({
+        candidates: contextCandidates,
+        question: childQuestion,
+      }),
     })
   }
 
@@ -452,10 +447,9 @@ function NodeDetails({
               />
             </div>
 
-            <ContextSelector controller={contextController} />
-
             <p className="child-form__note">
-              The AI will answer after this child is created.
+              The AI will answer after this child is created, using relevant
+              graph context automatically.
             </p>
 
             <div className="child-form__actions">
@@ -480,9 +474,7 @@ function NodeDetails({
 function PendingNodeDetails({ contextCandidates, node, onDiscard, onSave }) {
   const [title, setTitle] = useState('')
   const [question, setQuestion] = useState('')
-  const contextController = useContextPlan(contextCandidates, question)
-  const canSave =
-    title.trim() && question.trim() && !contextController.isOverBudget
+  const canSave = title.trim() && question.trim()
 
   function handleSubmit(event) {
     event.preventDefault()
@@ -494,7 +486,10 @@ function PendingNodeDetails({ contextCandidates, node, onDiscard, onSave }) {
     onSave({
       title: title.trim(),
       question: question.trim(),
-      contextPlan: contextController.plan,
+      contextPlan: createAutomaticContextPlan({
+        candidates: contextCandidates,
+        question,
+      }),
     })
   }
 
@@ -554,11 +549,9 @@ function PendingNodeDetails({ contextCandidates, node, onDiscard, onSave }) {
           />
         </div>
 
-        <ContextSelector controller={contextController} />
-
         <p className="child-form__note">
           This node remains temporary until you create it. The AI answer starts
-          after saving.
+          after saving, using relevant graph context automatically.
         </p>
 
         <div className="child-form__actions">
@@ -1447,37 +1440,23 @@ function getStructuralChildId(edge, nodes) {
 }
 
 function getAutomaticContextPlan(node, nodes, edges) {
-  if (!node?.data?.parentId) {
-    return createContextPlan({
-      candidates: [],
-      selectedIds: new Set(),
-      selectionMode: 'automatic',
-      tokenBudget: defaultContextTokenBudget,
-    })
-  }
+  const candidates = node?.data?.parentId
+    ? buildContextCandidates({
+        nodes,
+        edges,
+        parentNodeId: node.data.parentId,
+        source: node.data.sourceTerm
+          ? {
+              text: node.data.sourceTerm,
+              role: node.data.sourceMessageRole ?? 'assistant',
+            }
+          : null,
+      })
+    : []
 
-  const candidates = buildContextCandidates({
-    nodes,
-    edges,
-    parentNodeId: node.data.parentId,
-    source: node.data.sourceTerm
-      ? {
-          text: node.data.sourceTerm,
-          role: node.data.sourceMessageRole ?? 'assistant',
-        }
-      : null,
-  })
-  const selectedIds = suggestContextCandidateIds(
+  return createAutomaticContextPlan({
     candidates,
-    node.data.userMessage,
-    defaultContextTokenBudget,
-  )
-
-  return createContextPlan({
-    candidates,
-    selectedIds,
-    selectionMode: 'automatic',
-    tokenBudget: defaultContextTokenBudget,
+    question: node?.data?.userMessage ?? '',
   })
 }
 

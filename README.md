@@ -84,14 +84,15 @@ While the request is running, the same node displays **Thinking…**; successful
 responses update that node in place, while failed requests keep the node and
 offer **Retry** in Node Details.
 
-Before creating a child, users can preview and control the graph context sent to
-the model. The immediate parent and any explicitly selected source text are
-included by default. KnowFlow ranks ancestor conversations and nodes joined by
-explicit semantic edges against the new question, suggests relevant candidates
-within a configurable context budget, and lets the user override every choice.
-Ordinary sibling branches are excluded. The chosen blocks retain their graph
-provenance and are saved as a snapshot on the new node, so Retry uses the same
-context instead of silently rebuilding it from a changed graph.
+When a child question is submitted, KnowFlow automatically assembles relevant
+graph context without adding another configuration step. It prioritizes the
+immediate parent and any explicitly selected source text, then ranks ancestor
+conversations and nodes joined by explicit semantic edges against the new
+question. Ordinary sibling branches are excluded. The automatic policy keeps
+the request within a fixed context budget, trimming long required blocks when
+needed. The resulting blocks retain their graph provenance and are saved as an
+inspectable snapshot on the new node, so Retry uses the same context instead of
+silently rebuilding it from a changed graph.
 
 The public React app remains on GitHub Pages. Its AI endpoint is a separate
 Cloudflare Worker using a Workers AI binding, so no model credential is stored

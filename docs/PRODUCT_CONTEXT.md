@@ -94,18 +94,18 @@ GPU - - - VRAM   (related to; “GPU mainly works with VRAM.”)
 
 ## Context semantics
 
-Context selection is graph-aware but remains explicit and inspectable. Before a
-new child question is sent, KnowFlow builds candidates from the immediate
-parent, up to four ancestor conversations, and nodes connected to that lineage
-by explicit non-follow-up semantic edges. An exact source selection is a
-separate context block. Ordinary sibling relationships alone never make a node
-eligible.
+Context selection is graph-aware, automatic, and inspectable after the request.
+When a new child question is submitted, KnowFlow builds candidates from the
+immediate parent, up to four ancestor conversations, and nodes connected to
+that lineage by explicit non-follow-up semantic edges. An exact source
+selection is a separate context block. Ordinary sibling relationships alone
+never make a node eligible.
 
-The parent conversation and selected source text are included by default.
-Optional candidates are ranked against the new question and suggested only
-when they fit the chosen token budget. The user can inspect the exact text,
-select or remove any block, change the budget, or send no graph context. Visual
-position never participates in selection.
+The automatic policy prioritizes the parent conversation and selected source
+text, then ranks optional candidates against the new question and includes only
+those that fit the fixed token budget. If required context is too long, it is
+trimmed automatically while preserving both sources. There is no pre-submit
+context configuration step. Visual position never participates in selection.
 
 Each submitted node stores an immutable context snapshot containing the text,
 node provenance, relationship, selection method, and budget. Retry reuses that
@@ -116,8 +116,8 @@ reference material, and does not allow a block to act as a system instruction.
 The following questions remain open and should be explored with evaluation
 rather than hidden automation:
 
-- How should conflicting or contradictory selected blocks be presented?
-- Should users be able to reorder context priority manually?
+- How should conflicting or contradictory automatic context be presented?
+- How should the automatic ranking policy be evaluated against real questions?
 - When should embeddings or a learned reranker replace lexical relevance?
 - Can a node have multiple semantic parents?
 - How should grounded sources and citations be attached to AI answers?
@@ -207,7 +207,8 @@ A possible long-term research question is: “How can AI systems support non-lin
 4. Visual location does not define semantic meaning.
 5. Dragging nodes does not change context.
 6. Semantic changes must be explicit.
-7. User control is more important than automatic organization.
+7. Keep graph structure under user control; automate invisible request plumbing
+   when it reduces interaction cost without changing graph meaning.
 8. Do not automatically generate a mind map unless explicitly added later.
 9. Do not assume sibling nodes share context.
 10. Keep the interface extremely simple.
