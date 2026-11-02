@@ -54,14 +54,11 @@ A user asks AI about FreeToken. The AI answer mentions CPU, GPU, RAM, and VRAM. 
 
 ## Current Prototype
 
-The first working slice displays the FreeToken example as a draggable knowledge graph. A node can be moved by dragging anywhere on its card:
-
-- FreeToken → CPU
-- FreeToken → GPU
-- FreeToken → RAM
-- FreeToken → VRAM
-
-The graph flows from top to bottom with curved follow-up edges. Each node previews a static user/AI exchange so that nodes read as conversation containers rather than simple labels.
+A fresh guest workspace opens with one example graph: **Getting started**.
+It contains two levels: a root conversation introducing KnowFlow and two child
+conversations explaining follow-up questions, semantic connections and saving.
+The example is prewritten and needs no AI request. Existing guest graphs remain
+on the device and are restored on return; signed-in cloud libraries are separate.
 
 Dragging changes only a node's visual position. It does not change the graph's semantic relationships.
 

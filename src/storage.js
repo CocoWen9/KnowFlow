@@ -242,7 +242,7 @@ export function loadGraphLibrary(fallbackGraph) {
   const migratedGraph = loadStoredGraph(fallbackGraph)
   const now = new Date().toISOString()
   const graph = {
-    id: 'local-freetoken',
+    id: migratedGraph === fallbackGraph ? 'local-example' : 'local-freetoken',
     createdAt: now,
     updatedAt: now,
     ...migratedGraph,

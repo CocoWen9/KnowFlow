@@ -824,7 +824,7 @@ function GraphSidebar({
           <AppIcon name="graph" />
           <span>
             <strong>
-              {graph.id === 'local-freetoken' ? 'Example: ' : ''}
+              {['local-example', 'local-freetoken'].includes(graph.id) ? 'Example: ' : ''}
               {graphSummary}
             </strong>
             <small>
@@ -972,76 +972,46 @@ const edgeTypes = {
 
 const initialNodes = [
   {
-    id: 'freetoken',
+    id: 'welcome',
     type: 'conversation',
-    position: { x: 450, y: 20 },
+    position: { x: 170, y: 0 },
     data: {
-      title: 'FreeToken',
-      userMessage: 'What is the FreeToken project and how does it work?',
+      title: 'Getting started',
+      userMessage: 'How do I use KnowFlow?',
       assistantMessage:
-        'FreeToken improves LLM inference by coordinating CPU, GPU, RAM, and VRAM resources.',
-      origin: 'Starting question for this knowledge graph.',
+        'Explore a question as a knowledge graph. Each node holds a question and answer. Branch into a follow-up, or connect related ideas. Open the two nodes below to learn how. Sign in to ask AI questions and save graphs across devices.',
+      origin: 'KnowFlow example and user guide.',
       isRoot: true,
     },
   },
   {
-    id: 'cpu',
+    id: 'branching',
     type: 'conversation',
-    position: { x: 0, y: 330 },
+    position: { x: 0, y: 360 },
     data: {
-      title: 'CPU',
-      parentId: 'freetoken',
-      sourceTerm: 'CPU',
+      title: 'Branch into a follow-up',
+      parentId: 'welcome',
+      sourceTerm: 'Branch into a follow-up',
       sourceMessageRole: 'assistant',
-      userMessage: 'What role does the CPU play?',
+      userMessage: 'How do I explore something I do not understand?',
       assistantMessage:
-        'The CPU handles general orchestration and prepares work for accelerators.',
-      origin: 'Highlighted from the FreeToken conversation.',
+        'Click a node to open its conversation. Select a word or phrase in a message and choose Add child node, or use Add child node directly. Enter a title and a focused question, then save. Once signed in, AI answers in that child using relevant graph context.',
+      origin: 'Highlighted from the Getting started conversation.',
     },
   },
   {
-    id: 'gpu',
+    id: 'connections',
     type: 'conversation',
-    position: { x: 300, y: 330 },
+    position: { x: 340, y: 360 },
     data: {
-      title: 'GPU',
-      parentId: 'freetoken',
-      sourceTerm: 'GPU',
+      title: 'Connect related ideas',
+      parentId: 'welcome',
+      sourceTerm: 'connect related ideas',
       sourceMessageRole: 'assistant',
-      userMessage: 'Why does FreeToken need a GPU?',
+      userMessage: 'How do I organize and keep my knowledge?',
       assistantMessage:
-        'The GPU performs highly parallel calculations used during model inference.',
-      origin: 'Highlighted from the FreeToken conversation.',
-    },
-  },
-  {
-    id: 'ram',
-    type: 'conversation',
-    position: { x: 600, y: 330 },
-    data: {
-      title: 'RAM',
-      parentId: 'freetoken',
-      sourceTerm: 'RAM',
-      sourceMessageRole: 'assistant',
-      userMessage: 'How is system RAM used?',
-      assistantMessage:
-        'RAM keeps data readily available to the CPU while the system is running.',
-      origin: 'Highlighted from the FreeToken conversation.',
-    },
-  },
-  {
-    id: 'vram',
-    type: 'conversation',
-    position: { x: 900, y: 330 },
-    data: {
-      title: 'VRAM',
-      parentId: 'freetoken',
-      sourceTerm: 'VRAM',
-      sourceMessageRole: 'assistant',
-      userMessage: 'How is VRAM different from RAM?',
-      assistantMessage:
-        'VRAM is fast memory dedicated to the GPU for model weights and active data.',
-      origin: 'Highlighted from the FreeToken conversation.',
+        'Hover a node and click its bottom + handle to connect it to another node. Click a line to set its relationship and add a note. Drag nodes to arrange the canvas; this does not change their meaning. Guest edits stay on this device. Sign in, then use Import local graphs to copy them to your account.',
+      origin: 'Highlighted from the Getting started conversation.',
     },
   },
 ]
@@ -1084,8 +1054,8 @@ function createConnectionPreviewPath(start, end) {
   ].join(' ')
 }
 
-const initialEdges = ['cpu', 'gpu', 'ram', 'vram'].map((target) =>
-  createFollowUpEdge('freetoken', target),
+const initialEdges = ['branching', 'connections'].map((target) =>
+  createFollowUpEdge('welcome', target),
 )
 
 function cloneInitialGraph() {
@@ -1111,6 +1081,8 @@ function getGraphSummary(graph) {
   if (!rootNode) {
     return 'Untitled graph'
   }
+
+  if (graph.id === 'local-example') return rootNode.data.title
 
   const assistantSummary = rootNode.data.assistantMessage?.trim()
 
@@ -2717,7 +2689,7 @@ function App({ initialLibrary: providedLibrary, session = null, repository = nul
       <header className="app-header">
         <div className="app-header__title">
           <h1>
-            {activeGraphId === 'local-freetoken' ? 'Example: ' : ''}
+            {['local-example', 'local-freetoken'].includes(activeGraphId) ? 'Example: ' : ''}
             {activeGraphHeading}
           </h1>
           <span>{repository ? 'Cloud' : 'Local'}</span>
