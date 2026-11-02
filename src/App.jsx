@@ -15,12 +15,15 @@ import {
   useReactFlow,
 } from '@xyflow/react'
 import { ContextReceipt } from './ContextReceipt.jsx'
+import { cloneGraphSnapshot, getPersistableGraph, saveGraph, createGraphId, normalizeLibraryGraph, loadGraphLibrary, saveGraphLibrary } from './storage.js'
+import { CloudSync, graphFingerprint, readDrafts, writeDraft } from './cloudSync.js'
+import { apiBaseUrl, getAccessToken, supabase } from './cloudClient.js'
 import {
   buildContextCandidates,
   createAutomaticContextPlan,
 } from './contextSelection.js'
 
-const aiApiBaseUrl = (import.meta.env.VITE_AI_API_URL ?? '').replace(/\/$/, '')
+const aiApiBaseUrl = apiBaseUrl
 const aiRequestTimeoutMs = 45_000
 const sidebarWidthStorageKey = 'knowflow.sidebar-width.v1'
 const defaultSidebarWidth = 256
@@ -759,9 +762,12 @@ function GraphSidebar({
   onSelectGraph,
   onToggleGraphPin,
   onToggle,
+  onAccount,
+  user,
+  cloud = false,
+  busy = false,
 }) {
   const [query, setQuery] = useState('')
-  const [showAccountNote, setShowAccountNote] = useState(false)
   const [graphContextMenu, setGraphContextMenu] = useState(null)
   const sortedGraphs = [...graphs].sort((first, second) => {
     const pinnedDifference =
@@ -796,7 +802,7 @@ function GraphSidebar({
             type: 'graph',
             graphId: graph.id,
             targetLabel: graphSummary,
-            description: 'Deletes this graph from this device.',
+            description: cloud ? 'Deletes this graph from your account.' : 'Deletes this graph from this device.',
             x: Math.max(
               12,
               Math.min(event.clientX, window.innerWidth - 232),
@@ -811,6 +817,7 @@ function GraphSidebar({
         <button
           className={`graph-list__item ${graph.id === activeGraphId ? 'graph-list__item--active' : ''}`}
           type="button"
+          disabled={busy}
           onClick={() => onSelectGraph(graph.id)}
           aria-current={graph.id === activeGraphId ? 'page' : undefined}
         >
@@ -831,6 +838,7 @@ function GraphSidebar({
           aria-label={
             graph.pinned ? `Unpin ${graphSummary}` : `Pin ${graphSummary}`
           }
+          disabled={busy}
           aria-pressed={Boolean(graph.pinned)}
           title={graph.pinned ? 'Unpin graph' : 'Pin graph'}
           onClick={(event) => {
@@ -872,6 +880,7 @@ function GraphSidebar({
         <button
           className="sidebar-action"
           type="button"
+          disabled={busy}
           onClick={onCreateGraph}
           title={collapsed ? 'New graph' : undefined}
         >
@@ -897,7 +906,7 @@ function GraphSidebar({
 
       {!collapsed && (
         <div className="graph-sidebar__library">
-          <nav className="graph-list" aria-label="Local knowledge graphs">
+          <nav className="graph-list" aria-label={cloud ? "Cloud knowledge graphs" : "Local knowledge graphs"}>
             {pinnedGraphs.length > 0 && (
               <div className="graph-list__section">
                 <div className="graph-sidebar__section-heading">Pinned</div>
@@ -913,39 +922,26 @@ function GraphSidebar({
             )}
 
             {!visibleGraphs.length && (
-              <p className="graph-list__empty">No local graphs match your search.</p>
+              <p className="graph-list__empty">No graphs match your search.</p>
             )}
           </nav>
         </div>
       )}
 
       <div className="graph-sidebar__account">
-        {showAccountNote && !collapsed && (
-          <div className="account-note" role="status">
-            <strong>Local workspace</strong>
-            <p>Sign in to sync your graphs across devices.</p>
-          </div>
-        )}
         <button
           className="account-button"
           type="button"
-          onClick={() => {
-            if (collapsed) {
-              onToggle()
-              return
-            }
-
-            setShowAccountNote((currentValue) => !currentValue)
-          }}
-          title={collapsed ? 'Guest account' : undefined}
+          onClick={onAccount}
+          title={user ? user.email : 'Sign in'}
         >
           <span className="account-button__avatar" aria-hidden="true">
             <AppIcon name="user" />
           </span>
           {!collapsed && (
             <span className="account-button__copy">
-              <strong>Log in</strong>
-              <small>Guest · Local only</small>
+              <strong>{user ? user.email : 'Sign in'}</strong>
+              <small>{cloud ? 'Cloud workspace' : 'Local workspace'}</small>
             </span>
           )}
           {!collapsed && <AppIcon name="arrow" />}
@@ -1092,9 +1088,6 @@ const initialEdges = ['cpu', 'gpu', 'ram', 'vram'].map((target) =>
   createFollowUpEdge('freetoken', target),
 )
 
-const graphStorageKey = 'knowflow.graph.v1'
-const graphStorageVersion = 2
-
 function cloneInitialGraph() {
   return {
     nodes: initialNodes.map((node) => ({
@@ -1108,271 +1101,6 @@ function cloneInitialGraph() {
       markerEnd: { ...edge.markerEnd },
     })),
   }
-}
-
-function cloneGraphSnapshot(nodes, edges) {
-  return {
-    nodes: nodes.map((node) => ({
-      ...node,
-      position: { ...node.position },
-      data: { ...node.data },
-    })),
-    edges: edges.map((edge) => ({
-      ...edge,
-      data: edge.data ? { ...edge.data } : edge.data,
-      markerEnd:
-        edge.markerEnd && typeof edge.markerEnd === 'object'
-          ? { ...edge.markerEnd }
-          : edge.markerEnd,
-    })),
-  }
-}
-
-function loadStoredGraph() {
-  const fallbackGraph = cloneInitialGraph()
-
-  try {
-    const storedValue = window.localStorage.getItem(graphStorageKey)
-
-    if (!storedValue) {
-      return fallbackGraph
-    }
-
-    const storedGraph = JSON.parse(storedValue)
-
-    if (
-      ![1, graphStorageVersion].includes(storedGraph?.version) ||
-      !Array.isArray(storedGraph.nodes) ||
-      !Array.isArray(storedGraph.edges)
-    ) {
-      return fallbackGraph
-    }
-
-    const nodesAreValid = storedGraph.nodes.every(
-      (node) =>
-        typeof node?.id === 'string' &&
-        Number.isFinite(node?.position?.x) &&
-        Number.isFinite(node?.position?.y) &&
-        typeof node?.data?.title === 'string' &&
-        typeof node?.data?.userMessage === 'string' &&
-        typeof node?.data?.assistantMessage === 'string',
-    )
-    const nodeIds = new Set(storedGraph.nodes.map((node) => node.id))
-    const edgesAreValid = storedGraph.edges.every(
-      (edge) =>
-        typeof edge?.id === 'string' &&
-        nodeIds.has(edge?.source) &&
-        nodeIds.has(edge?.target),
-    )
-
-    if (!nodesAreValid || !edgesAreValid) {
-      return fallbackGraph
-    }
-
-    const normalizedNodes = storedGraph.nodes.map((storedNode) => {
-      const node = { ...storedNode }
-      delete node.dragHandle
-      const interruptedAnswer = node.data.aiStatus === 'loading'
-
-      return {
-        ...node,
-        type: 'conversation',
-        position: { ...node.position },
-        data: {
-          ...node.data,
-          ...(interruptedAnswer
-            ? {
-                aiStatus: 'error',
-                assistantMessage: 'The previous answer was interrupted.',
-              }
-            : {}),
-        },
-      }
-    })
-    const isLegacyGraph = storedGraph.version === 1
-
-    return {
-      nodes: normalizedNodes,
-      edges: storedGraph.edges.map((edge) => {
-        const isStructuralEdge = Boolean(
-          getStructuralChildId(edge, normalizedNodes),
-        )
-        const storedRelationshipType = edge.data?.relationshipType
-        const relationshipType =
-          isLegacyGraph && !isStructuralEdge && storedRelationshipType === 'follow-up'
-            ? 'related-to'
-            : storedRelationshipType ??
-              (isStructuralEdge ? 'follow-up' : 'related-to')
-
-        return {
-          ...edge,
-          sourceHandle: edge.sourceHandle ?? 'branch-source',
-          targetHandle: edge.targetHandle ?? 'branch-target-top',
-          data: {
-            ...edge.data,
-            relationshipType,
-            note: typeof edge.data?.note === 'string' ? edge.data.note : '',
-          },
-          markerEnd: edge.markerEnd ? { ...edge.markerEnd } : undefined,
-        }
-      }),
-    }
-  } catch {
-    return fallbackGraph
-  }
-}
-
-function getPersistableGraph(nodes, edges) {
-  const stableNodes = nodes.filter((node) => !node.data.isPending)
-  const stableNodeIds = new Set(stableNodes.map((node) => node.id))
-  const persistableNodes = stableNodes.map(({ id, type, position, data }) => ({
-    id,
-    type,
-    position,
-    data,
-  }))
-  const persistableEdges = edges
-    .filter(
-      (edge) =>
-        !edge.data?.isPending &&
-        stableNodeIds.has(edge.source) &&
-        stableNodeIds.has(edge.target),
-    )
-    .map(
-      ({
-        id,
-        source,
-        target,
-        sourceHandle,
-        targetHandle,
-        type,
-        data,
-        markerEnd,
-      }) => ({
-        id,
-        source,
-        target,
-        sourceHandle,
-        targetHandle,
-        type,
-        data,
-        markerEnd,
-      }),
-    )
-
-  return {
-    nodes: persistableNodes,
-    edges: persistableEdges,
-  }
-}
-
-function saveGraph(nodes, edges) {
-  const persistableGraph = getPersistableGraph(nodes, edges)
-
-  window.localStorage.setItem(
-    graphStorageKey,
-    JSON.stringify({
-      version: graphStorageVersion,
-      ...persistableGraph,
-    }),
-  )
-}
-
-const graphLibraryStorageKey = 'knowflow.graph-library.v1'
-const graphLibraryStorageVersion = 1
-
-function createGraphId() {
-  if (window.crypto?.randomUUID) {
-    return window.crypto.randomUUID()
-  }
-
-  return `graph-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-}
-
-function normalizeLibraryGraph(graph) {
-  if (
-    typeof graph?.id !== 'string' ||
-    !Array.isArray(graph?.nodes) ||
-    !Array.isArray(graph?.edges)
-  ) {
-    return null
-  }
-
-  const snapshot = cloneGraphSnapshot(graph.nodes, graph.edges)
-
-  return {
-    id: graph.id,
-    pinned: Boolean(graph.pinned),
-    createdAt: graph.createdAt ?? new Date().toISOString(),
-    updatedAt: graph.updatedAt ?? graph.createdAt ?? new Date().toISOString(),
-    nodes: snapshot.nodes.map((node) => ({
-      ...node,
-      type: 'conversation',
-      data: {
-        ...node.data,
-        ...(node.data.aiStatus === 'loading'
-          ? {
-              aiStatus: 'error',
-              assistantMessage: 'The previous answer was interrupted.',
-            }
-          : {}),
-      },
-    })),
-    edges: snapshot.edges,
-  }
-}
-
-function loadGraphLibrary() {
-  try {
-    const storedValue = window.localStorage.getItem(graphLibraryStorageKey)
-
-    if (storedValue) {
-      const storedLibrary = JSON.parse(storedValue)
-      const graphs = storedLibrary?.graphs
-        ?.map(normalizeLibraryGraph)
-        .filter(Boolean)
-
-      if (
-        storedLibrary?.version === graphLibraryStorageVersion &&
-        graphs?.length
-      ) {
-        const activeGraphId = graphs.some(
-          (graph) => graph.id === storedLibrary.activeGraphId,
-        )
-          ? storedLibrary.activeGraphId
-          : graphs[0].id
-
-        return { activeGraphId, graphs }
-      }
-    }
-  } catch {
-    // Fall through to migrate the original single local graph.
-  }
-
-  const migratedGraph = loadStoredGraph()
-  const now = new Date().toISOString()
-  const graph = {
-    id: 'local-freetoken',
-    createdAt: now,
-    updatedAt: now,
-    ...migratedGraph,
-  }
-
-  return {
-    activeGraphId: graph.id,
-    graphs: [graph],
-  }
-}
-
-function saveGraphLibrary(graphs, activeGraphId) {
-  window.localStorage.setItem(
-    graphLibraryStorageKey,
-    JSON.stringify({
-      version: graphLibraryStorageVersion,
-      activeGraphId,
-      graphs,
-    }),
-  )
 }
 
 function getGraphSummary(graph) {
@@ -1460,9 +1188,13 @@ function getAutomaticContextPlan(node, nodes, edges) {
   })
 }
 
-function App() {
-  const [initialLibrary] = useState(loadGraphLibrary)
-  const [graphLibrary, setGraphLibrary] = useState(initialLibrary.graphs)
+export function loadLocalLibrary() {
+  return loadGraphLibrary(cloneInitialGraph())
+}
+
+function App({ initialLibrary: providedLibrary, session = null, repository = null, onAccount, onGoLocal, onGoCloud }) {
+  const [initialLibrary] = useState(() => providedLibrary ?? loadLocalLibrary())
+  const [graphLibrary, setGraphLibraryState] = useState(initialLibrary.graphs)
   const [activeGraphId, setActiveGraphId] = useState(initialLibrary.activeGraphId)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [sidebarWidth, setSidebarWidth] = useState(loadSidebarWidth)
@@ -1479,6 +1211,31 @@ function App() {
   const [textSelection, setTextSelection] = useState(null)
   const [childDraft, setChildDraft] = useState(null)
   const [saveStatus, setSaveStatus] = useState('saved')
+  const [cloudStatuses, setCloudStatuses] = useState({})
+  const [cloudMessage, setCloudMessage] = useState('')
+  const [cloudBusy, setCloudBusy] = useState(false)
+  const [draftClientId] = useState(createGraphId)
+  const [recoveryDrafts, setRecoveryDrafts] = useState(() => repository ? readDrafts(window.localStorage, session.user.id) : {})
+  const syncRef = useRef(null)
+  const mountedRef = useRef(true)
+  const activeGraphIdRef = useRef(activeGraphId)
+  const libraryRef = useRef(graphLibrary)
+  const aiRequests = useRef(new Map())
+  activeGraphIdRef.current = activeGraphId
+  libraryRef.current = graphLibrary
+  function setGraphLibrary(update) {
+    const next = typeof update === 'function' ? update(libraryRef.current) : update
+    libraryRef.current = next
+    setGraphLibraryState(next)
+  }
+  if (repository && !syncRef.current) {
+    syncRef.current = new CloudSync(repository, {
+      onStatus: (id, status) => setCloudStatuses((current) => ({ ...current, [id]: status })),
+      onSaved: (id, saved) => setGraphLibrary((graphs) => graphs.map((graph) => graph.id === id ? { ...graph, version: saved.version, updatedAt: saved.updatedAt } : graph)),
+      onDraft: (id, graph) => writeDraft(window.localStorage, session.user.id, `${draftClientId}:${id}`, graph),
+    })
+    initialLibrary.graphs.forEach((graph) => syncRef.current.seed(graph))
+  }
   const [activeConnectionSourceId, setActiveConnectionSourceId] = useState(null)
   const [canvasAddAction, setCanvasAddAction] = useState(null)
   const [connectionPreview, setConnectionPreview] = useState(null)
@@ -1603,35 +1360,49 @@ function App() {
 
   useEffect(() => {
     setSaveStatus('saving')
-
     const saveTimer = setTimeout(() => {
       try {
-        saveGraph(nodes, edges)
-        const persistableGraph = getPersistableGraph(nodes, edges)
-        const now = new Date().toISOString()
-
-        setGraphLibrary((currentGraphs) => {
-          const updatedGraphs = currentGraphs.map((graph) =>
-            graph.id === activeGraphId
-              ? {
-                  ...graph,
-                  ...persistableGraph,
-                  updatedAt: now,
-                }
-              : graph,
-          )
-
-          saveGraphLibrary(updatedGraphs, activeGraphId)
-          return updatedGraphs
-        })
+        const updatedGraphs = getLibraryWithCurrentGraph()
+        persistLibrary(updatedGraphs, activeGraphId)
+        setGraphLibrary(updatedGraphs)
         setSaveStatus('saved')
-      } catch {
+      } catch (error) {
         setSaveStatus('error')
+        setCloudMessage(error.message || 'Could not save your changes on this device.')
       }
-    }, 200)
-
+    }, repository ? 600 : 200)
     return () => clearTimeout(saveTimer)
   }, [activeGraphId, nodes, edges])
+
+  useEffect(() => {
+    mountedRef.current = true
+    if (syncRef.current) syncRef.current.stopped = false
+    function backUpCurrent() {
+      const graphs = libraryRef.current.map((graph) => graph.id === activeGraphIdRef.current
+        ? { ...graph, ...getPersistableGraph(nodesRef.current, edgesRef.current) } : graph)
+      try {
+        if (repository) {
+          for (const graph of graphs) {
+            const entry = syncRef.current.entries.get(graph.id)
+            if (graphFingerprint(graph) !== entry?.fingerprint) writeDraft(window.localStorage, session.user.id, `${draftClientId}:${graph.id}`, graph)
+          }
+        } else {
+          saveGraphLibrary(graphs, activeGraphIdRef.current)
+          const current = graphs.find((graph) => graph.id === activeGraphIdRef.current)
+          if (current) saveGraph(current.nodes, current.edges)
+        }
+      } catch { /* The visible save operation reports storage errors. */ }
+    }
+    window.addEventListener('pagehide', backUpCurrent)
+    return () => {
+      backUpCurrent()
+      mountedRef.current = false
+      syncRef.current?.stop()
+      for (const request of aiRequests.current.values()) request.controller.abort()
+      aiRequests.current.clear()
+      window.removeEventListener('pagehide', backUpCurrent)
+    }
+  }, [])
 
   useEffect(() => {
     function handleKeyboardShortcut(event) {
@@ -1672,12 +1443,99 @@ function App() {
     graphHistory.current = [...graphHistory.current.slice(-49), snapshot]
   }
 
+  function persistLibrary(graphs, selectedId) {
+    if (repository) {
+      graphs.forEach((graph) => syncRef.current.queue(graph))
+    } else {
+      saveGraphLibrary(graphs, selectedId)
+      const current = graphs.find((graph) => graph.id === selectedId)
+      if (current) saveGraph(current.nodes, current.edges)
+    }
+  }
+
+  function downloadGraph() {
+    const current = getLibraryWithCurrentGraph().find((graph) => graph.id === activeGraphId)
+    const blob = new Blob([JSON.stringify(current, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'knowflow-graph.json'
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
+  async function reloadCloudGraph() {
+    setCloudBusy(true)
+    setCloudMessage('')
+    try {
+      const draft = getLibraryWithCurrentGraph().find((graph) => graph.id === activeGraphId)
+      const backupId = `recovery-${createGraphId()}`
+      writeDraft(window.localStorage, session.user.id, backupId, draft)
+      setRecoveryDrafts((current) => ({ ...current, [backupId]: draft }))
+      const graph = normalizeLibraryGraph(await repository.getGraph(activeGraphId))
+      await syncRef.current.replace(graph)
+      writeDraft(window.localStorage, session.user.id, `${draftClientId}:${activeGraphId}`, null)
+      if (mountedRef.current) openLocalGraph(graph, getLibraryWithCurrentGraph().map((item) => item.id === graph.id ? graph : item))
+    } catch (error) { setCloudMessage(error.message) }
+    finally { if (mountedRef.current) setCloudBusy(false) }
+  }
+
+  function saveConflictCopy() {
+    const graphs = getLibraryWithCurrentGraph()
+    const current = graphs.find((graph) => graph.id === activeGraphId)
+    const copy = { ...current, id: createGraphId(), version: 0, createdAt: new Date().toISOString() }
+    openLocalGraph(copy, [...graphs, copy])
+    setCloudMessage('Your edits are being saved as a separate graph. The original is unchanged.')
+  }
+
+  async function importGraphs(recover = false) {
+    if (cloudBusy) return
+    setCloudBusy(true)
+    setCloudMessage('')
+    try {
+      const sources = recover ? Object.entries(recoveryDrafts) : loadLocalLibrary().graphs.map((graph) => [graph.id, graph])
+      const mappingKey = `knowflow.imports.v1.${session.user.id}`
+      let mapping = JSON.parse(window.localStorage.getItem(mappingKey) ?? '{}')
+      const imported = []
+      for (const [sourceId, sourceGraph] of sources) {
+        const mapId = `${recover ? 'recovery' : 'local'}:${sourceId}`
+        const sourceFingerprint = graphFingerprint(sourceGraph)
+        if (!mapping[mapId] || mapping[mapId].fingerprint !== sourceFingerprint) {
+          mapping[mapId] = { id: createGraphId(), mutationId: createGraphId(), fingerprint: sourceFingerprint }
+          window.localStorage.setItem(mappingKey, JSON.stringify(mapping))
+        }
+        const target = mapping[mapId]
+        let saved
+        try { saved = await repository.getGraph(target.id) }
+        catch (error) { if (error.status !== 404) throw error }
+        if (!mountedRef.current) return
+        if (!saved) {
+          saved = await repository.saveGraph({ ...sourceGraph, ...getPersistableGraph(sourceGraph.nodes, sourceGraph.edges), id: target.id }, { expectedVersion: 0, mutationId: target.mutationId })
+        }
+        if (!mountedRef.current) return
+        const normalized = normalizeLibraryGraph(saved)
+        imported.push(normalized)
+        if (!syncRef.current.entries.has(saved.id)) syncRef.current.seed(normalized)
+        if (recover) {
+          const currentDraft = readDrafts(window.localStorage, session.user.id)[sourceId]
+          if (currentDraft && graphFingerprint(currentDraft) === sourceFingerprint) writeDraft(window.localStorage, session.user.id, sourceId, null)
+        }
+        // Keep successfully imported graphs visible if a later graph fails.
+        setGraphLibrary((graphs) => graphs.some((graph) => graph.id === saved.id) ? graphs : [...graphs, normalized])
+      }
+      if (recover) setRecoveryDrafts(readDrafts(window.localStorage, session.user.id))
+      setCloudMessage(`${imported.length} graph${imported.length === 1 ? '' : 's'} available in your account. Your local originals are preserved.`)
+    } catch (error) { if (mountedRef.current) setCloudMessage(error.message) }
+    finally { if (mountedRef.current) setCloudBusy(false) }
+  }
+
   function openLocalGraph(graph, nextGraphs) {
     const snapshot = cloneGraphSnapshot(graph.nodes, graph.edges)
 
-    saveGraphLibrary(nextGraphs, graph.id)
+    persistLibrary(nextGraphs, graph.id)
     setGraphLibrary(nextGraphs)
     setActiveGraphId(graph.id)
+    activeGraphIdRef.current = graph.id
     nodesRef.current = snapshot.nodes
     edgesRef.current = snapshot.edges
     setNodes(snapshot.nodes)
@@ -1706,8 +1564,8 @@ function App() {
     )
     const now = new Date().toISOString()
 
-    return graphLibrary.map((graph) =>
-      graph.id === activeGraphId
+    return libraryRef.current.map((graph) =>
+      graph.id === activeGraphIdRef.current
         ? {
             ...graph,
             ...persistableGraph,
@@ -1758,10 +1616,25 @@ function App() {
     )
 
     setGraphLibrary(nextGraphs)
-    saveGraphLibrary(nextGraphs, activeGraphId)
+    persistLibrary(nextGraphs, activeGraphId)
   }
 
-  function handleDeleteGraph(graphId) {
+  async function handleDeleteGraph(graphId) {
+    if (cloudBusy) return
+    if (repository) {
+      setCloudBusy(true)
+      try {
+        persistLibrary(getLibraryWithCurrentGraph(), activeGraphId)
+        await syncRef.current.remove(graphId)
+      } catch (error) {
+        setCloudMessage(error.message || 'Could not delete this graph.')
+        setCloudStatuses((current) => ({ ...current, [graphId]: { state: error.status === 409 ? 'conflict' : 'error', message: error.message } }))
+        setCloudBusy(false)
+        return
+      }
+      if (!mountedRef.current) return
+      setCloudBusy(false)
+    }
     let nextGraphs = getLibraryWithCurrentGraph().filter(
       (graph) => graph.id !== graphId,
     )
@@ -1800,7 +1673,7 @@ function App() {
     }
 
     setGraphLibrary(nextGraphs)
-    saveGraphLibrary(nextGraphs, activeGraphId)
+    persistLibrary(nextGraphs, activeGraphId)
   }
 
   async function requestAiAnswer(nodeId, nodeSnapshot = null) {
@@ -1809,6 +1682,28 @@ function App() {
 
     if (!node || node.data.isPending) {
       return
+    }
+
+    const requestGraphId = activeGraphIdRef.current
+    const requestKey = `${requestGraphId}:${nodeId}`
+    const requestId = createGraphId()
+    aiRequests.current.get(requestKey)?.controller.abort()
+    const requestController = new AbortController()
+    aiRequests.current.set(requestKey, { id: requestId, controller: requestController })
+
+    function applyResult(patch) {
+      if (!mountedRef.current || aiRequests.current.get(requestKey)?.id !== requestId) return
+      const update = (items) => items.map((item) => item.id === nodeId && item.data.aiRequestId === requestId
+        ? { ...item, data: { ...item.data, ...patch } } : item)
+      if (activeGraphIdRef.current === requestGraphId) {
+        setNodes(update)
+      } else {
+        const graphs = getLibraryWithCurrentGraph().map((graph) => graph.id === requestGraphId
+          ? { ...graph, nodes: update(graph.nodes) } : graph)
+        try { persistLibrary(graphs, activeGraphIdRef.current) }
+        catch (error) { setCloudMessage(error.message) }
+        setGraphLibrary(graphs)
+      }
     }
 
     const parentNode = node.data.parentId
@@ -1832,6 +1727,7 @@ function App() {
               data: {
                 ...currentNode.data,
                 aiStatus: 'loading',
+                aiRequestId: requestId,
                 assistantMessage: 'Thinking…',
                 aiError: undefined,
                 aiContext: contextPlan,
@@ -1841,7 +1737,6 @@ function App() {
       ),
     )
 
-    const requestController = new AbortController()
     const timeout = window.setTimeout(
       () => requestController.abort(),
       aiRequestTimeoutMs,
@@ -1852,9 +1747,11 @@ function App() {
         throw new Error('The AI service is not configured yet.')
       }
 
+      const accessToken = session ? await getAccessToken(supabase, session.user.id) : null
+      if (!mountedRef.current || aiRequests.current.get(requestKey)?.id !== requestId) return
       const response = await fetch(`${aiApiBaseUrl}/api/answer`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}) },
         signal: requestController.signal,
         body: JSON.stringify({
           title: node.data.title,
@@ -1889,44 +1786,17 @@ function App() {
         throw new Error('The AI service returned an empty answer.')
       }
 
-      setNodes((currentNodes) =>
-        currentNodes.map((currentNode) =>
-          currentNode.id === nodeId
-            ? {
-                ...currentNode,
-                data: {
-                  ...currentNode.data,
-                  aiStatus: 'complete',
-                  assistantMessage: answer,
-                  aiError: undefined,
-                },
-              }
-            : currentNode,
-        ),
-      )
+      applyResult({ aiStatus: 'complete', assistantMessage: answer, aiError: undefined })
     } catch (error) {
       const message =
         error.name === 'AbortError'
           ? 'The AI request timed out.'
           : error.message || 'The AI service could not answer.'
 
-      setNodes((currentNodes) =>
-        currentNodes.map((currentNode) =>
-          currentNode.id === nodeId
-            ? {
-                ...currentNode,
-                data: {
-                  ...currentNode.data,
-                  aiStatus: 'error',
-                  assistantMessage: 'Couldn’t generate an answer.',
-                  aiError: message,
-                },
-              }
-            : currentNode,
-        ),
-      )
+      applyResult({ aiStatus: 'error', assistantMessage: 'Couldn’t generate an answer.', aiError: message })
     } finally {
       window.clearTimeout(timeout)
+      if (aiRequests.current.get(requestKey)?.id === requestId) aiRequests.current.delete(requestKey)
     }
   }
 
@@ -2806,13 +2676,17 @@ function App() {
 
   return (
     <div
-      className={`app-layout ${isSidebarCollapsed ? 'app-layout--sidebar-collapsed' : ''} ${isResizingSidebar ? 'app-layout--resizing-sidebar' : ''}`}
+      className={`app-layout ${cloudBusy ? 'app-layout--busy' : ''} ${isSidebarCollapsed ? 'app-layout--sidebar-collapsed' : ''} ${isResizingSidebar ? 'app-layout--resizing-sidebar' : ''}`}
       style={{ '--sidebar-width': `${sidebarWidth}px` }}
     >
       <GraphSidebar
         activeGraphId={activeGraphId}
         collapsed={isSidebarCollapsed}
         graphs={graphLibrary}
+        user={session?.user}
+        cloud={Boolean(repository)}
+        busy={cloudBusy}
+        onAccount={onAccount}
         onCreateGraph={handleCreateGraph}
         onDeleteGraph={handleDeleteGraph}
         onSelectGraph={handleSelectGraph}
@@ -2846,21 +2720,41 @@ function App() {
             {activeGraphId === 'local-freetoken' ? 'Example: ' : ''}
             {activeGraphHeading}
           </h1>
-          <span>Local</span>
+          <span>{repository ? 'Cloud' : 'Local'}</span>
         </div>
         <div className="app-header__actions">
-          <span
-            className={`save-status save-status--${saveStatus}`}
-            aria-live="polite"
-          >
-            {saveStatus === 'saving'
-              ? 'Saving…'
-              : saveStatus === 'error'
-                ? 'Could not save'
-                : 'Saved on this device'}
+          <span className={`save-status save-status--${repository ? cloudStatuses[activeGraphId]?.state ?? 'saved' : saveStatus}`} aria-live="polite">
+            {repository
+              ? ({ saving: 'Saving…', error: 'Not saved to cloud', conflict: 'Conflicting changes', saved: 'Saved to your account' }[cloudStatuses[activeGraphId]?.state ?? (saveStatus === 'saving' ? 'saving' : 'saved')])
+              : saveStatus === 'saving' ? 'Saving…' : saveStatus === 'error' ? 'Could not save' : 'Saved on this device'}
           </span>
+          {repository ? <>
+            <button type="button" className="workspace-action" disabled={cloudBusy} onClick={() => importGraphs()}>Import local graphs</button>
+            <button type="button" className="workspace-action" onClick={() => { persistLibrary(getLibraryWithCurrentGraph(), activeGraphId); onGoLocal() }}>Local workspace</button>
+          </> : session && <button type="button" className="workspace-action" onClick={() => { persistLibrary(getLibraryWithCurrentGraph(), activeGraphId); onGoCloud() }}>Cloud workspace</button>}
         </div>
       </header>
+
+      {repository && (cloudMessage || cloudBusy || Object.keys(recoveryDrafts).length > 0 || ['error', 'conflict'].includes(cloudStatuses[activeGraphId]?.state)) && (
+        <div className="cloud-notice" aria-live="polite">
+          {cloudBusy && <span>Updating your workspace…</span>}
+          {cloudMessage && <span>{cloudMessage}</span>}
+          {Object.keys(recoveryDrafts).length > 0 && <>
+            <span>Unsaved edits are available on this device.</span>
+            <button type="button" disabled={cloudBusy} onClick={() => importGraphs(true)}>Recover as new graphs</button>
+          </>}
+          {cloudStatuses[activeGraphId]?.state === 'conflict' && <>
+            <span>This graph changed elsewhere. Your edits are kept on this device.</span>
+            <button type="button" disabled={cloudBusy} onClick={saveConflictCopy}>Save my edits as a new graph</button>
+            <button type="button" disabled={cloudBusy} onClick={reloadCloudGraph}>Load cloud version</button>
+          </>}
+          {cloudStatuses[activeGraphId]?.state === 'error' && <>
+            <span>{cloudStatuses[activeGraphId].message}</span>
+            <button type="button" onClick={() => syncRef.current.retry(activeGraphId)}>Retry save</button>
+          </>}
+          <button type="button" onClick={downloadGraph}>Download this graph</button>
+        </div>
+      )}
 
       <div
         className={`workspace ${selectedNode || selectedEdge ? 'workspace--with-details' : ''}`}

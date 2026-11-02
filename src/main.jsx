@@ -2,7 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import '@xyflow/react/dist/style.css'
 import './styles.css'
-import App from './App.jsx'
+import App from './WorkspaceHost.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

@@ -214,3 +214,13 @@ A possible long-term research question is: “How can AI systems support non-lin
 10. Keep the interface extremely simple.
 
 Treat this document as the long-term product context for the repository. Before making major product decisions, preserve these principles and ask if the behavior is ambiguous.
+
+## Version 2.0 implementation decision
+
+The user explicitly authorized authentication, a PostgreSQL backend, transactional
+graph updates, user isolation and version conflict detection. Preserve the
+original graph semantics. Cloud saves use the existing Worker with Supabase;
+guest storage remains separate. Import copies data explicitly. Conflicts preserve
+local edits and require recovery as a copy or loading the remote version.
+Background AI jobs and real-time collaborative merging remain future work.
+See BACKEND_SETUP.md for configuration and verification.

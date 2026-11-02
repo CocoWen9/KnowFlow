@@ -4,9 +4,20 @@ KnowFlow is a browser-based knowledge workspace for AI-assisted learning.
 
 It helps users turn linear AI conversations into interactive node-edge knowledge structures. Users can create knowledge nodes, connect related concepts, and add notes to both nodes and edges.
 
-## Version 1.0 — Cloudflare Edition
+## Version 2.0 — PostgreSQL workspace
 
-This repository snapshot is **KnowFlow 1.0**, the first end-to-end AI-enabled
+Version 2.0 adds optional Supabase authentication and per-user PostgreSQL graph
+storage through the Cloudflare Worker. Cloud saves use transactional updates,
+relational constraints, user access policies, and optimistic version checks.
+Guest graphs stay on this device and can be imported explicitly after sign-in.
+
+See [backend setup](docs/BACKEND_SETUP.md) for configuration, tests and rollout.
+The cloud path requires a Supabase project; without configuration the application
+continues to open the local guest workspace.
+
+## Version 1.0 — Cloudflare Edition (previous milestone)
+
+The previous **KnowFlow 1.0** milestone was, the first end-to-end AI-enabled
 prototype. The React application is hosted on GitHub Pages, while AI requests
 are handled by a Cloudflare Worker using Cloudflare Workers AI and the
 `@cf/google/gemma-4-26b-a4b-it` model.

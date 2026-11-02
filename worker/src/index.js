@@ -1,19 +1,21 @@
+import { ApiError, authenticate, cloudConfigured, handleGraphs, readJson } from './api.js'
+
 const allowedWebOrigins = new Set([
   'https://cocowen9.github.io',
 ])
 
-function isAllowedOrigin(origin) {
+function isAllowedOrigin(origin, env = {}) {
   return (
     !origin ||
-    allowedWebOrigins.has(origin) ||
+    (env.ALLOWED_ORIGINS ? env.ALLOWED_ORIGINS.split(',').map((value) => value.trim()).includes(origin) : allowedWebOrigins.has(origin)) ||
     /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin)
   )
 }
 
 function corsHeaders(origin) {
   return {
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Methods': 'GET, PUT, DELETE, POST, OPTIONS',
     'Access-Control-Allow-Origin': origin || 'https://cocowen9.github.io',
     'Access-Control-Max-Age': '86400',
     Vary: 'Origin',
@@ -248,7 +250,7 @@ export default {
     const origin = request.headers.get('Origin') || ''
     const url = new URL(request.url)
 
-    if (!isAllowedOrigin(origin)) {
+    if (!isAllowedOrigin(origin, env)) {
       return json({ error: 'Origin is not allowed.' }, 403, origin)
     }
 
@@ -257,7 +259,14 @@ export default {
     }
 
     if (url.pathname === '/health' && request.method === 'GET') {
-      return json({ status: 'ok' }, 200, origin)
+      return json({ status: 'ok', cloudEnabled: cloudConfigured(env) }, 200, origin)
+    }
+
+    if (url.pathname === '/api/graphs' || url.pathname.startsWith('/api/graphs/')) {
+      try { return json(await handleGraphs(request, env), 200, origin) }
+      catch (error) {
+        return json({ error: error instanceof ApiError ? error.message : 'Cloud storage is temporarily unavailable.', code: error.code || 'CLOUD_UNAVAILABLE' }, error.status || 503, origin)
+      }
     }
 
     if (url.pathname !== '/api/answer' || request.method !== 'POST') {
@@ -267,9 +276,10 @@ export default {
     let body
 
     try {
-      body = await request.json()
-    } catch {
-      return json({ error: 'Request body must be valid JSON.' }, 400, origin)
+      if (cloudConfigured(env)) await authenticate(request, env)
+      body = await readJson(request)
+    } catch (error) {
+      return json({ error: error.message || 'Request body must be valid JSON.', code: error.code }, error.status || 400, origin)
     }
 
     const promptResult = preparePrompt(body)
