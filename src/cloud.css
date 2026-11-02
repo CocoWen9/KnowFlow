@@ -1,16 +1,25 @@
 .account-dialog {
+  --account-surface: #faf8f4;
+  --account-input: #fffefa;
+  --account-border: #ded8ce;
+  --account-text: #332e28;
+  --account-secondary: #70675c;
+  --account-accent: #70563d;
+  --account-button: #e8dccb;
+  --account-button-hover: #ddccb5;
+  --account-button-active: #d3bda0;
   width: min(420px, calc(100vw - 32px));
   max-height: calc(100dvh - 48px);
   padding: 0;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-large);
-  color: var(--color-text);
-  background: var(--color-surface);
-  box-shadow: 0 18px 60px rgb(36 36 34 / 15%);
+  border: 1px solid var(--account-border);
+  border-radius: var(--radius-medium);
+  color: var(--account-text);
+  background: var(--account-surface);
+  box-shadow: 0 8px 28px rgb(51 46 40 / 10%);
 }
 
 .account-dialog::backdrop {
-  background: rgb(36 36 34 / 25%);
+  background: rgb(51 46 40 / 22%);
 }
 
 .account-panel {
@@ -26,9 +35,9 @@
 
 .account-panel__header h2 {
   margin: 0;
-  font-size: 1.1rem;
-  font-weight: 650;
-  letter-spacing: -0.02em;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .account-panel__close {
@@ -40,7 +49,7 @@
   place-items: center;
   border: 0;
   border-radius: var(--radius-small);
-  color: var(--color-text-secondary);
+  color: var(--account-secondary);
   background: transparent;
   cursor: pointer;
   font-size: 1.5rem;
@@ -48,19 +57,19 @@
 }
 
 .account-panel__close:hover {
-  background: var(--color-hover);
+  background: #eee8df;
 }
 
 .account-panel__description {
   margin: 14px 0 22px;
-  color: var(--color-text-secondary);
-  font-size: 0.875rem;
+  color: var(--account-secondary);
+  font-size: 13px;
   line-height: 1.6;
   overflow-wrap: anywhere;
 }
 
 .account-panel__description strong {
-  color: var(--color-text);
+  color: var(--account-text);
   font-weight: 550;
 }
 
@@ -70,7 +79,7 @@
 }
 
 .account-panel__form {
-  gap: 18px;
+  gap: 16px;
 }
 
 .account-panel__field {
@@ -85,45 +94,63 @@
 .account-panel__field input {
   width: 100%;
   min-width: 0;
-  min-height: 42px;
+  min-height: 40px;
   padding: 10px 12px;
-  border: 1px solid var(--color-border-strong);
+  border: 1px solid var(--account-border);
   border-radius: var(--radius-small);
-  color: var(--color-text);
-  background: var(--color-surface);
-  font-size: 0.875rem;
+  color: var(--account-text);
+  background: var(--account-input);
+  font: inherit;
+  font-size: 13px;
+  transition: border-color 120ms ease;
+}
+
+.account-panel__field input:hover:not(:disabled) {
+  border-color: #b5a48f;
+}
+
+.account-panel__field input:autofill {
+  box-shadow: 0 0 0 100px var(--account-input) inset;
+  -webkit-text-fill-color: var(--account-text);
 }
 
 .account-panel__field small {
-  color: var(--color-text-secondary);
+  color: var(--account-secondary);
   font-size: 0.75rem;
 }
 
 .account-panel__button {
-  min-height: 42px;
+  min-height: 40px;
   padding: 10px 16px;
-  border: 1px solid transparent;
+  border: 1px solid #cdbba4;
   border-radius: var(--radius-small);
-  color: #fff;
-  background: var(--color-accent);
+  color: #594735;
+  background: var(--account-button);
   cursor: pointer;
-  font-size: 0.875rem;
-  font-weight: 550;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background 120ms ease, border-color 120ms ease;
 }
 
 .account-panel__button:hover:not(:disabled) {
-  filter: brightness(0.95);
+  border-color: #b8a185;
+  background: var(--account-button-hover);
+}
+
+.account-panel__button:active:not(:disabled) {
+  background: var(--account-button-active);
 }
 
 .account-panel__button--secondary {
-  border-color: var(--color-border);
-  color: var(--color-text);
-  background: var(--color-surface-subtle);
+  border-color: var(--account-border);
+  color: var(--account-text);
+  background: var(--account-input);
 }
 
 .account-panel__switch {
   margin: 20px 0 0;
-  color: var(--color-text-secondary);
+  color: var(--account-secondary);
   font-size: 0.8rem;
   line-height: 1.6;
 }
@@ -132,7 +159,7 @@
   padding: 0;
   border: 0;
   border-radius: 2px;
-  color: var(--color-accent);
+  color: var(--account-accent);
   background: transparent;
   cursor: pointer;
   font-size: inherit;
@@ -144,7 +171,7 @@
 }
 
 .account-panel :is(button, input):focus-visible {
-  outline: 2px solid var(--color-accent);
+  outline: 2px solid var(--account-accent);
   outline-offset: 3px;
 }
 
