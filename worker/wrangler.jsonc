@@ -3,6 +3,11 @@
   "name": "knowflow-ai",
   "main": "src/index.js",
   "compatibility_date": "2026-10-04",
+  "vars": {
+    "SUPABASE_URL": "https://vycsaebmczsfqbftyrxf.supabase.co",
+    "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_GrMLR3MODcHaE4XSiLF71g_XAHUCUmk",
+    "ALLOWED_ORIGINS": "https://cocowen9.github.io"
+  },
   "ai": {
     "binding": "AI",
     "remote": true
