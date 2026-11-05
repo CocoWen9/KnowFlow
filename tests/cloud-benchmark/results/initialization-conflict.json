@@ -1,0 +1,11 @@
+{
+  "login": "Supabase SDK signInWithPassword through real Auth; separate incognito contexts",
+  "conflict": {
+    "aExpectedVersion": 6,
+    "aStatus": 200,
+    "graphId": "d2429b01-434b-4625-a280-1712c123aa35",
+    "bExpectedVersion": 5
+  },
+  "offline": {},
+  "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n6 !== 5\n\n    at file:///Users/wangziwen/Documents/KnowFlow/tests/cloud-benchmark/browser.mjs:12:429"
+}

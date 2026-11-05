@@ -1,0 +1,272 @@
+
+> knowflow@2.0.0 test
+> node --test
+
+TAP version 13
+# Subtest: a valid current session supplies its access token without refreshing
+ok 1 - a valid current session supplies its access token without refreshing
+  ---
+  duration_ms: 0.549334
+  type: 'test'
+  ...
+# Subtest: expired sessions refresh through the SDK before returning a token
+ok 2 - expired sessions refresh through the SDK before returning a token
+  ---
+  duration_ms: 0.144292
+  type: 'test'
+  ...
+# Subtest: an account-bound operation rejects the token of a different signed-in account
+ok 3 - an account-bound operation rejects the token of a different signed-in account
+  ---
+  duration_ms: 0.345083
+  type: 'test'
+  ...
+# Subtest: refresh cannot transfer an account-bound operation to a different account
+ok 4 - refresh cannot transfer an account-bound operation to a different account
+  ---
+  duration_ms: 0.096334
+  type: 'test'
+  ...
+# Subtest: missing expiry information and unsuccessful refreshes never return a token
+ok 5 - missing expiry information and unsuccessful refreshes never return a token
+  ---
+  duration_ms: 0.22775
+  type: 'test'
+  ...
+# Subtest: cloud reads and deletes use authenticated requests and unwrap the API envelopes
+ok 6 - cloud reads and deletes use authenticated requests and unwrap the API envelopes
+  ---
+  duration_ms: 11.902625
+  type: 'test'
+  ...
+# Subtest: saving preserves the optimistic version and mutation identity
+ok 7 - saving preserves the optimistic version and mutation identity
+  ---
+  duration_ms: 0.237416
+  type: 'test'
+  ...
+# Subtest: version conflicts retain their code and status without retrying the write
+ok 8 - version conflicts retain their code and status without retrying the write
+  ---
+  duration_ms: 0.282875
+  type: 'test'
+  ...
+# Subtest: missing sessions fail before any graph data is sent
+ok 9 - missing sessions fail before any graph data is sent
+  ---
+  duration_ms: 0.322041
+  type: 'test'
+  ...
+# Subtest: oversized writes are measured in UTF-8 bytes and rejected before transmission
+ok 10 - oversized writes are measured in UTF-8 bytes and rejected before transmission
+  ---
+  duration_ms: 1.9085
+  type: 'test'
+  ...
+# Subtest: response size limits apply to streamed bodies without a content length
+ok 11 - response size limits apply to streamed bodies without a content length
+  ---
+  duration_ms: 0.504042
+  type: 'test'
+  ...
+# Subtest: unrecognized successful responses fail instead of replacing local data
+ok 12 - unrecognized successful responses fail instead of replacing local data
+  ---
+  duration_ms: 0.320333
+  type: 'test'
+  ...
+# Subtest: network write failures do not expose internal errors or automatically retry
+ok 13 - network write failures do not expose internal errors or automatically retry
+  ---
+  duration_ms: 0.1785
+  type: 'test'
+  ...
+# Subtest: timed out requests are aborted and report an uncertain write result
+ok 14 - timed out requests are aborted and report an uncertain write result
+  ---
+  duration_ms: 3.961208
+  type: 'test'
+  ...
+# Subtest: serializes edits and uses the acknowledged version for the next write
+ok 15 - serializes edits and uses the acknowledged version for the next write
+  ---
+  duration_ms: 3.768625
+  type: 'test'
+  ...
+# Subtest: retries a lost response with the original mutation ID before sending newer edits
+ok 16 - retries a lost response with the original mutation ID before sending newer edits
+  ---
+  duration_ms: 0.427583
+  type: 'test'
+  ...
+# Subtest: conflicts stop writes and retain drafts until an explicit resolution
+ok 17 - conflicts stop writes and retain drafts until an explicit resolution
+  ---
+  duration_ms: 0.600417
+  type: 'test'
+  ...
+# Subtest: deletion waits for pending writes and blocks later autosaves
+ok 18 - deletion waits for pending writes and blocks later autosaves
+  ---
+  duration_ms: 0.90125
+  type: 'test'
+  ...
+# Subtest: draft backups are isolated by account
+ok 19 - draft backups are isolated by account
+  ---
+  duration_ms: 0.173084
+  type: 'test'
+  ...
+# Subtest: undoing to the acknowledged content after a failed save still queues the undo
+ok 20 - undoing to the acknowledged content after a failed save still queues the undo
+  ---
+  duration_ms: 0.170708
+  type: 'test'
+  ...
+# Subtest: one tab acknowledging a save cannot clear another tab’s draft
+ok 21 - one tab acknowledging a save cannot clear another tab’s draft
+  ---
+  duration_ms: 0.125458
+  type: 'test'
+  ...
+# Subtest: an edit arriving during save finalization is drained before flush resolves
+ok 22 - an edit arriving during save finalization is drained before flush resolves
+  ---
+  duration_ms: 0.129542
+  type: 'test'
+  ...
+# Subtest: builds candidates from explicit source, parent, ancestors, and semantic neighbors
+ok 23 - builds candidates from explicit source, parent, ancestors, and semantic neighbors
+  ---
+  duration_ms: 1.365958
+  type: 'test'
+  ...
+# Subtest: automatically selects relevant graph context within the budget
+ok 24 - automatically selects relevant graph context within the budget
+  ---
+  duration_ms: 0.983625
+  type: 'test'
+  ...
+# Subtest: skips an oversized optional block and continues to a smaller relevant one
+ok 25 - skips an oversized optional block and continues to a smaller relevant one
+  ---
+  duration_ms: 0.185667
+  type: 'test'
+  ...
+# Subtest: creates a context-free automatic plan for an independent root
+ok 26 - creates a context-free automatic plan for an independent root
+  ---
+  duration_ms: 0.0595
+  type: 'test'
+  ...
+# Subtest: uses automatic provenance for mandatory and ranked context
+ok 27 - uses automatic provenance for mandatory and ranked context
+  ---
+  duration_ms: 0.2825
+  type: 'test'
+  ...
+# Subtest: automatically fits mandatory context when raw text exceeds the budget
+ok 28 - automatically fits mandatory context when raw text exceeds the budget
+  ---
+  duration_ms: 2.167417
+  type: 'test'
+  ...
+# Subtest: matches the Worker token estimate after transport normalization
+ok 29 - matches the Worker token estimate after transport normalization
+  ---
+  duration_ms: 0.495834
+  type: 'test'
+  ...
+# Subtest: token estimates account conservatively for Chinese text
+ok 30 - token estimates account conservatively for Chinese text
+  ---
+  duration_ms: 0.0585
+  type: 'test'
+  ...
+# Subtest: omits transient AI status text from context snapshots
+ok 31 - omits transient AI status text from context snapshots
+  ---
+  duration_ms: 0.305625
+  type: 'test'
+  ...
+# Subtest: handles parent cycles without duplicating candidates
+ok 32 - handles parent cycles without duplicating candidates
+  ---
+  duration_ms: 0.396666
+  type: 'test'
+  ...
+# Subtest: real PostgreSQL enforces ownership, atomic graph writes and optimistic concurrency
+ok 33 - real PostgreSQL enforces ownership, atomic graph writes and optimistic concurrency
+  ---
+  duration_ms: 746.748125
+  type: 'test'
+  ...
+# Subtest: graph save verifies identity and forwards user permissions, version and mutation ID
+ok 34 - graph save verifies identity and forwards user permissions, version and mutation ID
+  ---
+  duration_ms: 14.334875
+  type: 'test'
+  ...
+# Subtest: database conflicts and missing graphs retain actionable HTTP statuses
+ok 35 - database conflicts and missing graphs retain actionable HTTP statuses
+  ---
+  duration_ms: 1.823709
+  type: 'test'
+  ...
+# Subtest: missing or forged identity fails before any database request
+ok 36 - missing or forged identity fails before any database request
+  ---
+  duration_ms: 0.755792
+  type: 'test'
+  ...
+# Subtest: request parsing bounds actual bytes even without content length
+ok 37 - request parsing bounds actual bytes even without content length
+  ---
+  duration_ms: 3.617333
+  type: 'test'
+  ...
+# Subtest: CORS includes authentication and database methods; partial cloud config fails closed
+ok 38 - CORS includes authentication and database methods; partial cloud config fails closed
+  ---
+  duration_ms: 0.582916
+  type: 'test'
+  ...
+# Subtest: uses structured context blocks instead of legacy context
+ok 39 - uses structured context blocks instead of legacy context
+  ---
+  duration_ms: 0.644875
+  type: 'test'
+  ...
+# Subtest: respects an explicit empty context array without legacy fallback
+ok 40 - respects an explicit empty context array without legacy fallback
+  ---
+  duration_ms: 0.075209
+  type: 'test'
+  ...
+# Subtest: rejects malformed or over-budget context
+ok 41 - rejects malformed or over-budget context
+  ---
+  duration_ms: 0.699209
+  type: 'test'
+  ...
+# Subtest: keeps a legacy fallback for clients that omit contextBlocks
+ok 42 - keeps a legacy fallback for clients that omit contextBlocks
+  ---
+  duration_ms: 0.144917
+  type: 'test'
+  ...
+# Subtest: rejects non-object request bodies and strips forged context roles
+ok 43 - rejects non-object request bodies and strips forged context roles
+  ---
+  duration_ms: 0.089125
+  type: 'test'
+  ...
+1..43
+# tests 43
+# suites 0
+# pass 43
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 854.554208

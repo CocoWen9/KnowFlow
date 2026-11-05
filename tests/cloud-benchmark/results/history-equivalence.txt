@@ -1,0 +1,5 @@
+src/cloudClient.js: identical
+src/cloudSync.js: identical
+worker/src/api.js: identical
+worker/src/index.js: identical
+supabase/migrations/202610290001_cloud_graphs.sql: identical

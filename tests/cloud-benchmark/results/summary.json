@@ -1,0 +1,38 @@
+[
+  {
+    "revision": "2c9c48b",
+    "size": "small",
+    "success": 20,
+    "timeouts": 0,
+    "medianMs": 14.834478999999988,
+    "minMs": 13.909332999999947,
+    "maxMs": 16.997124999999983
+  },
+  {
+    "revision": "2c9c48b",
+    "size": "large",
+    "success": 20,
+    "timeouts": 0,
+    "medianMs": 190.42202099999986,
+    "minMs": 182.43999999999983,
+    "maxMs": 198.84129200000007
+  },
+  {
+    "revision": "5340404",
+    "size": "small",
+    "success": 20,
+    "timeouts": 0,
+    "medianMs": 17.83041700000001,
+    "minMs": 15.089832999999999,
+    "maxMs": 20.438916999999947
+  },
+  {
+    "revision": "5340404",
+    "size": "large",
+    "success": 20,
+    "timeouts": 0,
+    "medianMs": 191.67716600000006,
+    "minMs": 185.40374999999995,
+    "maxMs": 201.62195799999995
+  }
+]
