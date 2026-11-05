@@ -1,0 +1,51 @@
+{
+  "recordedAt": "2026-11-05T00:29:54.392Z",
+  "graphId": "e46a6ead-116a-4d83-9594-359e91e22018",
+  "startingVersion": 1,
+  "acceptedVersion": 2,
+  "worker": {
+    "status": 503,
+    "ms": 15083.544249999999,
+    "ray": "a557bdf12ab5dee4-SEA",
+    "body": {
+      "error": "Cloud storage is temporarily unavailable. Please retry.",
+      "code": "CLOUD_UNAVAILABLE"
+    }
+  },
+  "rpc": {
+    "error": "TimeoutError",
+    "ms": 35003.910791
+  },
+  "readBack": {
+    "status": 200,
+    "ms": 758.6577500000058,
+    "ray": "a557bf2a7894c74a-SEA",
+    "body": {
+      "graph": {
+        "id": "e46a6ead-116a-4d83-9594-359e91e22018",
+        "edges": [],
+        "nodes": [
+          {
+            "id": "root",
+            "data": {
+              "title": "Synthetic conflict probe",
+              "isRoot": true,
+              "userMessage": "Question",
+              "assistantMessage": "Answer"
+            },
+            "type": "conversation",
+            "position": {
+              "x": 0,
+              "y": 0
+            }
+          }
+        ],
+        "pinned": true,
+        "version": 2,
+        "createdAt": "2026-11-05T00:29:03.221538+00:00",
+        "updatedAt": "2026-11-05T00:29:03.524684+00:00"
+      }
+    }
+  },
+  "acceptedContentPreserved": true
+}

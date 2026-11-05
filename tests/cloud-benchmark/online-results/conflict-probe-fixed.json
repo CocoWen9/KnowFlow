@@ -1,0 +1,58 @@
+{
+  "recordedAt": "2026-11-05T00:40:56.642Z",
+  "graphId": "8c713e29-1f61-4236-ac7d-5212afa6a050",
+  "startingVersion": 1,
+  "acceptedVersion": 2,
+  "worker": {
+    "status": 409,
+    "ms": 104.24324999999999,
+    "ray": "a557cf587c3c9100-SJC",
+    "body": {
+      "error": "This graph changed elsewhere. Reload the cloud version before saving.",
+      "code": "VERSION_CONFLICT"
+    }
+  },
+  "rpc": {
+    "status": 409,
+    "ms": 50.06695800000011,
+    "ray": "a557cf591817dc11-SEA",
+    "body": {
+      "code": "40001",
+      "details": null,
+      "hint": null,
+      "message": "Graph changed. Reload before saving."
+    }
+  },
+  "readBack": {
+    "status": 200,
+    "ms": 101.66170800000009,
+    "ray": "a557cf597d459100-SJC",
+    "body": {
+      "graph": {
+        "id": "8c713e29-1f61-4236-ac7d-5212afa6a050",
+        "edges": [],
+        "nodes": [
+          {
+            "id": "root",
+            "data": {
+              "title": "Synthetic conflict probe",
+              "isRoot": true,
+              "userMessage": "Question",
+              "assistantMessage": "Answer"
+            },
+            "type": "conversation",
+            "position": {
+              "x": 0,
+              "y": 0
+            }
+          }
+        ],
+        "pinned": true,
+        "version": 2,
+        "createdAt": "2026-11-05T00:40:55.971145+00:00",
+        "updatedAt": "2026-11-05T00:40:56.36653+00:00"
+      }
+    }
+  },
+  "acceptedContentPreserved": true
+}

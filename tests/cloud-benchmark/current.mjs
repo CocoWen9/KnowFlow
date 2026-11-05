@@ -1,13 +1,19 @@
-import {readFileSync,writeFileSync} from 'node:fs';
+import {writeFileSync} from 'node:fs';
+import {loadBenchmarkConfig} from './config.mjs';
 import assert from 'node:assert/strict';
 import {createCloudRepository} from '../../src/cloudClient.js';
-import {chromium} from '/Users/wangziwen/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright/index.mjs';
-const c=JSON.parse(readFileSync('/tmp/knowflow-bench/config.json'));const out=c.outputDir;
-const results={environment:{date:new Date().toISOString(),node:process.version,postgres:'18.6 (npm binary beta packaging)',auth:'2.197.0',postgrest:'16.5',worker:'actual worker.fetch under Node HTTP adapter; not workerd',network:'loopback HTTP',revision:'2c9c48b'},latency:[],isolation:[],scenarios:{}};
-const sessions=[];for(const who of ['A','B']){const r=await fetch(c.supabaseUrl+'/auth/v1/token?grant_type=password',{method:'POST',headers:{'Content-Type':'application/json',apikey:c.anonKey},body:JSON.stringify({email:c['email'+who],password:c['password'+who]})});const s=await r.json();if(!s.access_token)throw Error(JSON.stringify(s));sessions.push(s);}
+const c=loadBenchmarkConfig();const out=c.outputDir;
+const results={environment:c.online ? {date:new Date().toISOString(),node:process.version,frontend:c.frontendUrl,worker:c.apiUrl,network:'public HTTPS from test machine'} : {date:new Date().toISOString(),node:process.version,postgres:'18.6 (npm binary beta packaging)',auth:'2.197.0',postgrest:'16.5',worker:'actual worker.fetch under Node HTTP adapter; not workerd',network:'loopback HTTP',revision:'2c9c48b'},latency:[],isolation:[],scenarios:{}};
+const singleAccount = c.online && process.argv.includes('--account-b');
+const sessions=[];for(const who of singleAccount ? ['B'] : ['A','B']){const r=await fetch(c.supabaseUrl+'/auth/v1/token?grant_type=password',{method:'POST',headers:{'Content-Type':'application/json',apikey:c.anonKey},body:JSON.stringify({email:c['email'+who],password:c['password'+who]})});const s=await r.json();if(!s.access_token)throw Error(`Test account ${who} authentication failed (HTTP ${r.status}, ${s.error_code ?? s.error ?? 'no token'})`);sessions.push(s);}
 const repos=sessions.map(s=>createCloudRepository({baseUrl:c.apiUrl,getToken:async()=>s.access_token}));
 const graph=(n,e)=>({id:crypto.randomUUID(),pinned:false,nodes:Array.from({length:n},(_,i)=>({id:'n'+i,type:'conversation',position:{x:i%10*300,y:Math.floor(i/10)*180},data:{title:'Synthetic '+i,userMessage:'Synthetic question '+i,assistantMessage:'Synthetic answer. '.repeat(8),...(i?{parentId:'n'+Math.floor((i-1)/2)}:{isRoot:true})}})),edges:Array.from({length:e},(_,i)=>({id:'e'+i,source:'n'+(i%n),target:'n'+((i+1)%n),data:{relationshipType:'related-to',note:'Synthetic note '+i}}))});
 for(const [size,n,e] of [['small',10,12],['large',500,1000]]){let g=await repos[0].saveGraph(graph(n,e),{expectedVersion:0,mutationId:crypto.randomUUID()});for(let i=1;i<=20;i++){g.edges[0].data.note=`${size} mutation ${i}`;const expected=g.version;const started=new Date().toISOString();let httpStart;const timed=createCloudRepository({baseUrl:c.apiUrl,getToken:async()=>sessions[0].access_token,fetchImpl:(...args)=>{httpStart=performance.now();return fetch(...args);}});try{g=await timed.saveGraph(g,{expectedVersion:expected,mutationId:crypto.randomUUID()});const ms=performance.now()-httpStart;const fresh=await repos[0].getGraph(g.id);assert.equal(fresh.edges[0].data.note,`${size} mutation ${i}`);assert.equal(g.version,expected+1);results.latency.push({size,nodes:n,edges:e,iteration:i,started,requestToAckMs:ms,status:'success',version:g.version,readback:true});}catch(err){results.latency.push({size,iteration:i,status:err.code==='request_timeout'?'timeout':'error',error:err.message});}}}
+if (singleAccount) {
+  results.isolationStatus = 'Pending: second account did not authenticate';
+  writeFileSync(out+'/api-results.json',JSON.stringify(results,null,2));
+  process.exit(0);
+}
 let g=await repos[0].saveGraph(graph(2,1),{expectedVersion:0,mutationId:crypto.randomUUID()});
 for(const [actor,target] of [[1,g]]){for(const op of ['read','write']){try{await (op==='read'?repos[actor].getGraph(target.id):repos[actor].saveGraph({...target,pinned:true},{expectedVersion:target.version,mutationId:crypto.randomUUID()}));results.isolation.push({op,status:'FAIL',actor:'B',owner:'A'});}catch(e){results.isolation.push({op,status:e.status,code:e.code,actor:'B',owner:'A'});}}}
 const bgraph=await repos[1].saveGraph(graph(2,1),{expectedVersion:0,mutationId:crypto.randomUUID()});for(const op of ['read','write']){try{await(op==='read'?repos[0].getGraph(bgraph.id):repos[0].saveGraph({...bgraph,pinned:true},{expectedVersion:1,mutationId:crypto.randomUUID()}));results.isolation.push({op,status:'FAIL',actor:'A',owner:'B'});}catch(e){results.isolation.push({op,status:e.status,code:e.code,actor:'A',owner:'B'});}}

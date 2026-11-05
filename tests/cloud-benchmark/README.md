@@ -38,3 +38,20 @@ Stop the server with Ctrl-C (or terminate its exact PID); stop only this databas
 ```sh
 /tmp/knowflow-bench/bin/package/native/bin/pg_ctl -D /tmp/knowflow-bench/data stop
 ```
+
+## Run against the deployed app
+
+From the repository root, populate the ignored `.env.benchmark.local` file with
+`EMAIL_A`, `PASSWORD_A`, `EMAIL_B`, and `PASSWORD_B` for two dedicated test
+accounts that can already sign in to the deployed app. The online runner reads
+the deployed Supabase URL and publishable key from `.env.local`.
+
+```sh
+node tests/cloud-benchmark/current.mjs --online
+node tests/cloud-benchmark/browser.mjs --online
+```
+
+Run in that order. The API script creates synthetic graphs and leaves the
+browser fixture as account A's most recently updated graph. The browser script
+uses the deployed sign-in UI. These commands write to the deployed database
+under the test accounts. The output is in `/tmp/knowflow-online-benchmark`.

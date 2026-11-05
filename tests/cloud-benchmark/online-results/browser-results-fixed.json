@@ -1,0 +1,22 @@
+{
+  "login": "Deployed sign-in UI in separate incognito contexts",
+  "conflict": {
+    "aExpectedVersion": 1,
+    "aStatus": 200,
+    "graphId": "8f2a08e6-3140-4a27-8f13-174d2c83af64",
+    "bExpectedVersion": 1,
+    "bStatus": 409,
+    "notice": "This graph changed elsewhere. Your edits are kept on this device.\nSave my edits as a new graph\nLoad cloud version\nDownload this graph",
+    "aPreserved": true,
+    "recoveredGraphId": "7ec6cc98-e9a2-4a15-8a8a-3710ac18e637",
+    "bRecovered": true,
+    "status": "PASS"
+  },
+  "offline": {
+    "notice": "Your edits are being saved as a separate graph. The original is unchanged.\nThe connection was interrupted. Your changes may already be saved. Reload before trying again.\nRetry save\nDownload this graph",
+    "localDraftRetained": true,
+    "retryStatus": 200,
+    "freshSessionRelationship": "compares-with",
+    "status": "PASS"
+  }
+}

@@ -1,0 +1,482 @@
+{
+  "environment": {
+    "date": "2026-11-05T00:26:18.657Z",
+    "node": "v22.23.3",
+    "frontend": "https://cocowen9.github.io/KnowFlow/",
+    "worker": "https://knowflow-ai.knowflow.workers.dev",
+    "network": "public HTTPS from test machine"
+  },
+  "latency": [
+    {
+      "size": "small",
+      "nodes": 10,
+      "edges": 12,
+      "iteration": 1,
+      "started": "2026-11-05T00:26:20.106Z",
+      "requestToAckMs": 291.38808399999994,
+      "status": "success",
+      "version": 2,
+      "readback": true
+    },
+    {
+      "size": "small",
+      "nodes": 10,
+      "edges": 12,
+      "iteration": 2,
+      "started": "2026-11-05T00:26:20.553Z",
+      "requestToAckMs": 194.70041700000002,
+      "status": "success",
+      "version": 3,
+      "readback": true
+    },
+    {
+      "size": "small",
+      "nodes": 10,
+      "edges": 12,
+      "iteration": 3,
+      "started": "2026-11-05T00:26:20.890Z",
+      "requestToAckMs": 187.80291699999998,
+      "status": "success",
+      "version": 4,
+      "readback": true
+    },
+    {
+      "size": "small",
+      "nodes": 10,
+      "edges": 12,
+      "iteration": 4,
+      "started": "2026-11-05T00:26:21.249Z",
+      "requestToAckMs": 168.59595899999977,
+      "status": "success",
+      "version": 5,
+      "readback": true
+    },
+    {
+      "size": "small",
+      "nodes": 10,
+      "edges": 12,
+      "iteration": 5,
+      "started": "2026-11-05T00:26:21.506Z",
+      "requestToAckMs": 99.41604099999995,
+      "status": "success",
+      "version": 6,
+      "readback": true
+    },
+    {
+      "size": "small",
+      "nodes": 10,
+      "edges": 12,
+      "iteration": 6,
+      "started": "2026-11-05T00:26:21.772Z",
+      "requestToAckMs": 150.73799999999983,
+      "status": "success",
+      "version": 7,
+      "readback": true
+    },
+    {
+      "size": "small",
+      "nodes": 10,
+      "edges": 12,
+      "iteration": 7,
+      "started": "2026-11-05T00:26:22.020Z",
+      "requestToAckMs": 111.22858300000007,
+      "status": "success",
+      "version": 8,
+      "readback": true
+    },
+    {
+      "size": "small",
+      "nodes": 10,
+      "edges": 12,
+      "iteration": 8,
+      "started": "2026-11-05T00:26:22.298Z",
+      "requestToAckMs": 104.48625000000038,
+      "status": "success",
+      "version": 9,
+      "readback": true
+    },
+    {
+      "size": "small",
+      "nodes": 10,
+      "edges": 12,
+      "iteration": 9,
+      "started": "2026-11-05T00:26:22.495Z",
+      "requestToAckMs": 116.39066699999967,
+      "status": "success",
+      "version": 10,
+      "readback": true
+    },
+    {
+      "size": "small",
+      "nodes": 10,
+      "edges": 12,
+      "iteration": 10,
+      "started": "2026-11-05T00:26:22.827Z",
+      "requestToAckMs": 127.90104100000008,
+      "status": "success",
+      "version": 11,
+      "readback": true
+    },
+    {
+      "size": "small",
+      "nodes": 10,
+      "edges": 12,
+      "iteration": 11,
+      "started": "2026-11-05T00:26:23.175Z",
+      "requestToAckMs": 176.79512500000055,
+      "status": "success",
+      "version": 12,
+      "readback": true
+    },
+    {
+      "size": "small",
+      "nodes": 10,
+      "edges": 12,
+      "iteration": 12,
+      "started": "2026-11-05T00:26:23.444Z",
+      "requestToAckMs": 122.21766600000046,
+      "status": "success",
+      "version": 13,
+      "readback": true
+    },
+    {
+      "size": "small",
+      "nodes": 10,
+      "edges": 12,
+      "iteration": 13,
+      "started": "2026-11-05T00:26:23.676Z",
+      "requestToAckMs": 196.16808299999957,
+      "status": "success",
+      "version": 14,
+      "readback": true
+    },
+    {
+      "size": "small",
+      "nodes": 10,
+      "edges": 12,
+      "iteration": 14,
+      "started": "2026-11-05T00:26:23.978Z",
+      "requestToAckMs": 123.40370900000016,
+      "status": "success",
+      "version": 15,
+      "readback": true
+    },
+    {
+      "size": "small",
+      "nodes": 10,
+      "edges": 12,
+      "iteration": 15,
+      "started": "2026-11-05T00:26:24.276Z",
+      "requestToAckMs": 155.49795799999993,
+      "status": "success",
+      "version": 16,
+      "readback": true
+    },
+    {
+      "size": "small",
+      "nodes": 10,
+      "edges": 12,
+      "iteration": 16,
+      "started": "2026-11-05T00:26:24.523Z",
+      "requestToAckMs": 145.36175000000003,
+      "status": "success",
+      "version": 17,
+      "readback": true
+    },
+    {
+      "size": "small",
+      "nodes": 10,
+      "edges": 12,
+      "iteration": 17,
+      "started": "2026-11-05T00:26:24.769Z",
+      "requestToAckMs": 172.46662500000002,
+      "status": "success",
+      "version": 18,
+      "readback": true
+    },
+    {
+      "size": "small",
+      "nodes": 10,
+      "edges": 12,
+      "iteration": 18,
+      "started": "2026-11-05T00:26:25.032Z",
+      "requestToAckMs": 117.21162499999991,
+      "status": "success",
+      "version": 19,
+      "readback": true
+    },
+    {
+      "size": "small",
+      "nodes": 10,
+      "edges": 12,
+      "iteration": 19,
+      "started": "2026-11-05T00:26:25.251Z",
+      "requestToAckMs": 98.06608400000005,
+      "status": "success",
+      "version": 20,
+      "readback": true
+    },
+    {
+      "size": "small",
+      "nodes": 10,
+      "edges": 12,
+      "iteration": 20,
+      "started": "2026-11-05T00:26:25.533Z",
+      "requestToAckMs": 117.18549999999959,
+      "status": "success",
+      "version": 21,
+      "readback": true
+    },
+    {
+      "size": "large",
+      "nodes": 500,
+      "edges": 1000,
+      "iteration": 1,
+      "started": "2026-11-05T00:26:26.728Z",
+      "requestToAckMs": 712.6248749999995,
+      "status": "success",
+      "version": 2,
+      "readback": true
+    },
+    {
+      "size": "large",
+      "nodes": 500,
+      "edges": 1000,
+      "iteration": 2,
+      "started": "2026-11-05T00:26:27.621Z",
+      "requestToAckMs": 683.424959,
+      "status": "success",
+      "version": 3,
+      "readback": true
+    },
+    {
+      "size": "large",
+      "nodes": 500,
+      "edges": 1000,
+      "iteration": 3,
+      "started": "2026-11-05T00:26:28.593Z",
+      "requestToAckMs": 640.8211659999997,
+      "status": "success",
+      "version": 4,
+      "readback": true
+    },
+    {
+      "size": "large",
+      "nodes": 500,
+      "edges": 1000,
+      "iteration": 4,
+      "started": "2026-11-05T00:26:29.430Z",
+      "requestToAckMs": 737.1125410000004,
+      "status": "success",
+      "version": 5,
+      "readback": true
+    },
+    {
+      "size": "large",
+      "nodes": 500,
+      "edges": 1000,
+      "iteration": 5,
+      "started": "2026-11-05T00:26:30.340Z",
+      "requestToAckMs": 678.4157919999998,
+      "status": "success",
+      "version": 6,
+      "readback": true
+    },
+    {
+      "size": "large",
+      "nodes": 500,
+      "edges": 1000,
+      "iteration": 6,
+      "started": "2026-11-05T00:26:31.213Z",
+      "requestToAckMs": 832.3621249999997,
+      "status": "success",
+      "version": 7,
+      "readback": true
+    },
+    {
+      "size": "large",
+      "nodes": 500,
+      "edges": 1000,
+      "iteration": 7,
+      "started": "2026-11-05T00:26:32.264Z",
+      "requestToAckMs": 701.7732500000002,
+      "status": "success",
+      "version": 8,
+      "readback": true
+    },
+    {
+      "size": "large",
+      "nodes": 500,
+      "edges": 1000,
+      "iteration": 8,
+      "started": "2026-11-05T00:26:33.140Z",
+      "requestToAckMs": 722.9748749999999,
+      "status": "success",
+      "version": 9,
+      "readback": true
+    },
+    {
+      "size": "large",
+      "nodes": 500,
+      "edges": 1000,
+      "iteration": 9,
+      "started": "2026-11-05T00:26:34.070Z",
+      "requestToAckMs": 1054.3845000000001,
+      "status": "success",
+      "version": 10,
+      "readback": true
+    },
+    {
+      "size": "large",
+      "nodes": 500,
+      "edges": 1000,
+      "iteration": 10,
+      "started": "2026-11-05T00:26:35.297Z",
+      "requestToAckMs": 760.3751249999987,
+      "status": "success",
+      "version": 11,
+      "readback": true
+    },
+    {
+      "size": "large",
+      "nodes": 500,
+      "edges": 1000,
+      "iteration": 11,
+      "started": "2026-11-05T00:26:36.226Z",
+      "requestToAckMs": 876.4575000000004,
+      "status": "success",
+      "version": 12,
+      "readback": true
+    },
+    {
+      "size": "large",
+      "nodes": 500,
+      "edges": 1000,
+      "iteration": 12,
+      "started": "2026-11-05T00:26:37.280Z",
+      "requestToAckMs": 752.7808329999971,
+      "status": "success",
+      "version": 13,
+      "readback": true
+    },
+    {
+      "size": "large",
+      "nodes": 500,
+      "edges": 1000,
+      "iteration": 13,
+      "started": "2026-11-05T00:26:38.223Z",
+      "requestToAckMs": 866.1209999999992,
+      "status": "success",
+      "version": 14,
+      "readback": true
+    },
+    {
+      "size": "large",
+      "nodes": 500,
+      "edges": 1000,
+      "iteration": 14,
+      "started": "2026-11-05T00:26:39.239Z",
+      "requestToAckMs": 698.4366249999985,
+      "status": "success",
+      "version": 15,
+      "readback": true
+    },
+    {
+      "size": "large",
+      "nodes": 500,
+      "edges": 1000,
+      "iteration": 15,
+      "started": "2026-11-05T00:26:40.125Z",
+      "requestToAckMs": 734.979374999999,
+      "status": "success",
+      "version": 16,
+      "readback": true
+    },
+    {
+      "size": "large",
+      "nodes": 500,
+      "edges": 1000,
+      "iteration": 16,
+      "started": "2026-11-05T00:26:41.025Z",
+      "requestToAckMs": 710.148083,
+      "status": "success",
+      "version": 17,
+      "readback": true
+    },
+    {
+      "size": "large",
+      "nodes": 500,
+      "edges": 1000,
+      "iteration": 17,
+      "started": "2026-11-05T00:26:41.907Z",
+      "requestToAckMs": 706.981416999999,
+      "status": "success",
+      "version": 18,
+      "readback": true
+    },
+    {
+      "size": "large",
+      "nodes": 500,
+      "edges": 1000,
+      "iteration": 18,
+      "started": "2026-11-05T00:26:42.749Z",
+      "requestToAckMs": 673.286250000001,
+      "status": "success",
+      "version": 19,
+      "readback": true
+    },
+    {
+      "size": "large",
+      "nodes": 500,
+      "edges": 1000,
+      "iteration": 19,
+      "started": "2026-11-05T00:26:43.592Z",
+      "requestToAckMs": 731.3916250000002,
+      "status": "success",
+      "version": 20,
+      "readback": true
+    },
+    {
+      "size": "large",
+      "nodes": 500,
+      "edges": 1000,
+      "iteration": 20,
+      "started": "2026-11-05T00:26:44.519Z",
+      "requestToAckMs": 740.3267080000005,
+      "status": "success",
+      "version": 21,
+      "readback": true
+    }
+  ],
+  "isolation": [
+    {
+      "op": "read",
+      "status": 404,
+      "code": "GRAPH_NOT_FOUND",
+      "actor": "B",
+      "owner": "A"
+    },
+    {
+      "op": "write",
+      "status": 404,
+      "code": "GRAPH_NOT_FOUND",
+      "actor": "B",
+      "owner": "A"
+    },
+    {
+      "op": "read",
+      "status": 404,
+      "code": "GRAPH_NOT_FOUND",
+      "actor": "A",
+      "owner": "B"
+    },
+    {
+      "op": "write",
+      "status": 404,
+      "code": "GRAPH_NOT_FOUND",
+      "actor": "A",
+      "owner": "B"
+    }
+  ],
+  "scenarios": {}
+}
